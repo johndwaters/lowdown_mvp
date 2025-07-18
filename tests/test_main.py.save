@@ -1,0 +1,160 @@
+
+testpython3 -m pytest
+# tests/test_main.py
+
+import pytest
+from fastapi.testclient import TestClient
+import sqlite3
+from main impo
+def client(tmp_path):
+    """
+    Fixture to create a fresh, temporary database for each test function
+    and provide a TestClient instance.
+    """
+    db_path = tmp_path / "test_lowdown.db"
+    
+    conn = sqlite3.connect(db_path)
+    with open("database/schema.sql") as f:
+        conn.executescript(f.read())
+    conn.close()
+
+    original_db_path = db_handler.DB_PATH
+    db_handler.DB_PATH = db_path
+
+    yield TestClient(app)
+
+    db_handler.DB_PATH = original_db_path
+
+
+def test_read_root(client):
+    """Test the root endpoint."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Welcome to The Lowdown API"}
+
+
+def test_get_articles_empty(client):
+    """Test the /articles endpoint, which should initially be an empty list."""
+    response = client.get("/articles")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+    assert len(response.json()) == 0
+
+
+
+def test_create_and_get_article(client):
+    """Test creating a new article and then fetching it."""
+    article_data = {"url": "http://test-article.com/1", "title": "Test Article 1"}
+    response = client.post("/articles", json=article_data)
+    assert response.status_code == 201
+    created_article = response.json()
+    assert created_article["url"] == article_data["url"]
+    assert created_article["title"] == article_data["title"]
+
+    response = client.get("/articles")
+    assert response.status_code == 200
+    articles = response.json()
+    assert len(articles) == 1
+    assert articles[0]["url"] == article_data["url"]
+
+
+def test_create_duplicate_article(client):
+    """Test that creating an article with a duplicate URL fails."""
+    article_data = {"url": "http://duplicate-article.com/1", "title": "Duplicate Test"}
+    response = client.post("/articles", json=article_data)
+    assert response.status_code == 201
+
+    response = client.post("/articles", json=article_data)
+    assert response.status_code == 409
+    assert "already exists" in response.json()["detail"]
+
+
+def test_get_threats_empty(client):
+    """Test the /threats endpoint, which should initially be an empty list."""
+    response = client.get("/threats")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+    assert len(response.json()) == 0
+
+
+def test_create_and_get_threat(client):
+    """Test creating a new threat and then fetching it."""
+    threat_data = {
+        "name": "S-400 Triumf",
+        "type": "SAM",
+        "country_of_origin": "Russia",
+        "specfications": {"range": "400 km"},
+        "operators": ["Russia", "China"],
+    }
+    response = client.post("/threats", json=threat_data)
+    assert response.status_code == 201
+    created_threat = response.json()
+    assert created_threat["name"] == threat_data["name"]
+    assert created_threat["specifications"]["range"] == "400 km"
+
+    response = client.get("/threats")
+    assert response.status_code == 200
+    threats = response.json()
+    assert len(threats) == 1
+    assert threats[0]["name"] == threat_data["name"]
+
+
+def test_get_podcast_episodes_empty(client):
+    """Test the /podcasts endpoint, which should initially be an empty list."""
+    response = client.get("/podcasts")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+    assert len(response.json()) == 0
+
+
+def test_create_and_get_podcast_episode(client):
+    """Test creating a new podcast episode and then fetching it."""
+    episode_data = {
+        "title": "Episode 1: The Future of Air Combat",
+        "episode_number": 1,
+        "podcast_url": "http://example.com/podcast/1",
+        "description": "A discussion about 6th generation fighters.",
+        "published_date": "2025-06-26",
+        "image_url": "http://example.com/image.jpg"
+    }
+    response = client.post("/podcasts", json=episode_data)
+    assert response.status_code == 201
+    created_episode = response.json()
+    assert created_episode["title"] == episode_data["title"]
+    assert created_episode["podcast_url"] == episode_data["podcast_url"]
+
+    response = client.get("/podcasts")
+    assert response.status_code == 200
+    episodes = response.json()
+    assert len(episodes) == 1
+    assert episodes[0]["title"] == episode_data["title"]
+
+
+def test_summarize_article(client, mocker):
+    """Test the /summarize endpoint, mocking the web scraper."""
+    # 1. Create an article to summarize
+    article_data = {"url": "http://example.com/article1", "title": "Test Article for Summarization"}
+    response = client.post("/articles", json=article_data)
+    assert response.status_code == 201
+    created_article = response.json()
+    article_id = created_article["id"]
+
+    # 2. Mock the web scraper
+    mock_content = "This is a long article content that needs to be summarized." * 20
+    mocker.patch(
+        "services.web_scraper.fetch_and_parse_url",
+        return_value=mock_content
+    )
+
+    # 3. Call the summarize endpoint
+    response = client.post("/summarize", json={"article_id": article_id})
+    assert response.status_code == 200
+    summarized_article = response.json()
+
+    # 4. Verify the result
+    assert summarized_article["id"] == article_id
+    assert summarized_article["status"] == "summarized"
+    assert "[AI Summary Stub]" in summarized_article["summary"]
+    assert summarized_article["original_content"] == mock_
+x
+
