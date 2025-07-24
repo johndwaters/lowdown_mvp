@@ -25,6 +25,11 @@ app = FastAPI(
 )
 print("=== THE LOWDOWN API SERVER STARTING UP ===")
 
+# Health check endpoint for Railway
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "service": "The Lowdown API"}
+
 # --- Pydantic Models ---
 class ArticleCreate(BaseModel):
     url: str
@@ -402,3 +407,9 @@ def export_newsletter(issue_id: int):
     if issue.get('outro_text'):
         markdown += f"{issue['outro_text']}\n"
     return PlainTextResponse(content=markdown)
+
+# Server startup configuration for Railway deployment
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8003))
+    uvicorn.run(app, host="0.0.0.0", port=port)
