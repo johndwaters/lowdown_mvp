@@ -7,7 +7,7 @@ from database import db_handler
 st.set_page_config(page_title="The Lowdown Admin", layout="wide")
 
 # --- Config ---
-API_URL = "http://127.0.0.1:8003"
+API_URL = "https://lowdownmvp-production.up.railway.app"
 
 # --- Initialize DB ---
 db_handler.init_db()
