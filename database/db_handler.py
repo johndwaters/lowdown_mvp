@@ -4,8 +4,15 @@ from pathlib import Path
 import json
 from typing import Optional, Dict, Any, List
 
-# Define the path to the database file
-DB_PATH = Path(__file__).parent / "lowdown.db"
+# Define the path to the database file - ensure it works on Railway
+import os
+DB_DIR = Path(__file__).parent
+DB_DIR.mkdir(exist_ok=True)  # Ensure directory exists
+DB_PATH = DB_DIR / "lowdown.db"
+
+# For Railway, also try to use a persistent volume if available
+if os.getenv('RAILWAY_VOLUME_MOUNT_PATH'):
+    DB_PATH = Path(os.getenv('RAILWAY_VOLUME_MOUNT_PATH')) / "lowdown.db"
 
 def dict_factory(cursor, row):
     """Convert query results into a dictionary."""
@@ -24,13 +31,29 @@ def get_db_connection():
 
 def init_db():
     """Initializes the database from the schema.sql file."""
-    schema_path = Path(__file__).parent / "schema.sql"
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    with open(schema_path, 'r') as f:
-        cursor.executescript(f.read())
-    conn.commit()
-    conn.close()
+    try:
+        print(f"Initializing database at: {DB_PATH}")
+        schema_path = Path(__file__).parent / "schema.sql"
+        
+        if not schema_path.exists():
+            print(f"ERROR: Schema file not found at {schema_path}")
+            return False
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            with open(schema_path, 'r') as f:
+                cursor.executescript(f.read())
+            conn.commit()
+            conn.close()
+            print("Database initialized successfully")
+            return True
+        except Exception as e:
+            print(f"ERROR: Failed to initialize database: {e}")
+            return False
+    except Exception as e:
+        print(f"ERROR: Failed to initialize database: {e}")
+        return False
 
 # --- Article Functions ---
 def fetch_all_articles() -> List[Dict[str, Any]]:
