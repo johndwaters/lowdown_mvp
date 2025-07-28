@@ -186,7 +186,7 @@ def create_article(article: ArticleCreate):
 @app.patch("/articles/{article_id}", response_model=Article)
 def update_article(article_id: int, article_update: ArticleUpdate):
     update_data = article_update.model_dump(exclude_unset=True)
-    updated_article = db_handler.update_article(article_id, update_data)
+    updated_article = db_handler.update_article(article_id, **update_data)
     if not updated_article:
         raise HTTPException(status_code=404, detail="Article not found or update failed.")
     return updated_article

@@ -9,8 +9,18 @@ st.set_page_config(page_title="The Lowdown Admin", layout="wide")
 # --- Config ---
 API_URL = "https://lowdownmvp-production.up.railway.app"
 
-# --- Initialize DB ---
-db_handler.init_db()
+# --- Note: Using Railway API, no local DB needed ---
+
+# Function to fetch articles from Railway API
+def fetch_articles_from_api():
+    """Fetch articles from Railway API instead of local database"""
+    try:
+        response = requests.get(f"{API_URL}/articles")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch articles from Railway: {e}")
+        return []
 
 # --- Styling ---
 st.markdown("""<style>
@@ -25,7 +35,7 @@ def format_summary_for_export(row):
 
 def move_article(article_id, direction):
     """Moves an article up or down in the list."""
-    articles = db_handler.fetch_all_articles()
+    articles = fetch_articles_from_api()
     # Create a list of IDs in the current order
     ordered_ids = [a['id'] for a in articles]
     
@@ -96,7 +106,7 @@ with tab1:
 
         st.subheader("🤖 Actions")
         if st.button("Summarize All Pending Articles"):
-            pending_articles = [a for a in db_handler.fetch_all_articles() if a['status'] == 'pending']
+            pending_articles = [a for a in fetch_articles_from_api() if a['status'] == 'pending']
             if not pending_articles:
                 st.toast("No pending articles to summarize.", icon="👍")
             else:
@@ -112,7 +122,7 @@ with tab1:
 
     with col2:
         st.subheader("📄 Articles")
-        articles = db_handler.fetch_all_articles()
+        articles = fetch_articles_from_api()
         if not articles:
             st.info("No articles in the database. Add some using the form on the left.")
         else:
@@ -131,7 +141,7 @@ with tab1:
                             st.button("⬇️", key=f"down_{article['id']}", on_click=move_article, args=(article['id'], 'down'), help="Move Down")
 
                     # Display the summary, with a fallback message if it's empty
-                    summary_display = article.get('summary', '').strip()
+                    summary_display = (article.get('summary') or '').strip()
                     if summary_display:
                         st.markdown(summary_display)
                     else:
@@ -177,16 +187,31 @@ with tab1:
                     current_status = article.get('status')
                     if current_status != 'accepted':
                         if btn_cols[1].button("✅ Accept", key=f"accept_{article['id']}"):
-                            db_handler.update_article(article['id'], status='accepted')
-                            st.rerun()
+                            try:
+                                response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "accepted"})
+                                response.raise_for_status()
+                                st.toast("Article accepted!", icon="✅")
+                                st.rerun()
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"Failed to accept article: {e}")
                     else:
                         if btn_cols[1].button("↩️ Un-accept", key=f"unaccept_{article['id']}"):
-                            db_handler.update_article(article['id'], status='summarized')
-                            st.rerun()
+                            try:
+                                response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "summarized"})
+                                response.raise_for_status()
+                                st.toast("Article un-accepted!", icon="↩️")
+                                st.rerun()
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"Failed to un-accept article: {e}")
 
                     if btn_cols[2].button("Archive", key=f"archive_{article['id']}"):
-                        db_handler.update_article(article['id'], status='archived')
-                        st.rerun()
+                        try:
+                            response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "archived"})
+                            response.raise_for_status()
+                            st.toast("Article archived!", icon="📦")
+                            st.rerun()
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"Failed to archive article: {e}")
                     
                     if btn_cols[3].button("🗑️ Delete", key=f"delete_{article['id']}"):
                         try:
@@ -228,7 +253,7 @@ with tab3:
     st.header("🚀 Export Newsletter")
 
     # 1. Get Accepted Articles
-    accepted_articles = [a for a in db_handler.fetch_all_articles() if a['status'] == 'accepted']
+    accepted_articles = [a for a in fetch_articles_from_api() if a['status'] == 'accepted']
     
     # 2. Get Threat of the Day
     threat_of_day = None
