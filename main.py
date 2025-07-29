@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 
 from database import db_handler
-from services import ai_service, web_scraper
+from services import ai_service, web_scraper, perplexity_service
 
 from contextlib import asynccontextmanager
 @asynccontextmanager
@@ -143,6 +143,19 @@ class NewsletterIssueFull(NewsletterIssue):
 
 class AddArticlesToNewsletterRequest(BaseModel):
     article_ids: List[int]
+
+class ThreatResearchRequest(BaseModel):
+    threat_name: str
+
+class ThreatResearchResponse(BaseModel):
+    success: bool
+    threat_name: str
+    threat_type: str
+    newsletter_format: Optional[str] = None
+    research_format: Optional[str] = None
+    research_content: Optional[str] = None
+    citations: Optional[List[str]] = None
+    error: Optional[str] = None
 
 # --- API Endpoints ---
 @app.get("/")
@@ -407,6 +420,54 @@ def export_newsletter(issue_id: int):
     if issue.get('outro_text'):
         markdown += f"{issue['outro_text']}\n"
     return PlainTextResponse(content=markdown)
+
+# --- Threat Research Endpoint ---
+@app.post("/research-threat", response_model=ThreatResearchResponse)
+def research_threat(request: ThreatResearchRequest):
+    """
+    Research a military threat using Perplexity AI and return formatted profile.
+    """
+    try:
+        # Get Perplexity API key from environment
+        perplexity_api_key = os.environ.get("PERPLEXITY_API_KEY")
+        if not perplexity_api_key:
+            return ThreatResearchResponse(
+                success=False,
+                threat_name=request.threat_name,
+                threat_type="unknown",
+                error="Perplexity API key not configured"
+            )
+        
+        # Create Perplexity service and research threat
+        perplexity = perplexity_service.create_perplexity_service(perplexity_api_key)
+        research_data = perplexity.research_threat(request.threat_name)
+        
+        if research_data["success"]:
+            formatted_profiles = perplexity.format_threat_profile(research_data)
+            return ThreatResearchResponse(
+                success=True,
+                threat_name=research_data["threat_name"],
+                threat_type=research_data["threat_type"],
+                newsletter_format=formatted_profiles["newsletter_format"],
+                research_format=formatted_profiles["research_format"],
+                research_content=research_data["research_content"],
+                citations=research_data.get("citations", [])
+            )
+        else:
+            return ThreatResearchResponse(
+                success=False,
+                threat_name=request.threat_name,
+                threat_type=research_data.get("threat_type", "unknown"),
+                error=research_data.get("error", "Unknown research error")
+            )
+            
+    except Exception as e:
+        return ThreatResearchResponse(
+            success=False,
+            threat_name=request.threat_name,
+            threat_type="unknown",
+            error=f"Server error: {str(e)}"
+        )
 
 # Server startup configuration for Railway deployment
 if __name__ == "__main__":
