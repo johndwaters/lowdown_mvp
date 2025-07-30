@@ -66,11 +66,10 @@ def move_article(article_id, direction):
 st.title("The Lowdown - Content Curation")
 
 # --- Session State Initialization ---
-if 'threat_of_day_id' not in st.session_state:
-    st.session_state.threat_of_day_id = None
+# (Threat research data will be stored in session state as needed)
 
 # --- TABS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 Article Curation", "🔥 Threat of the Day", "🔍 Threat Research", "📝 Transcript", "🚀 Export"])
+tab1, tab2, tab3, tab4 = st.tabs(["📝 Article Curation", "🔍 Threat Research", "📝 Transcript", "🚀 Export"])
 
 with tab1:
     col1, col2 = st.columns([1, 2])
@@ -223,96 +222,6 @@ with tab1:
                             st.error(f"Failed to delete article: {e}")
 
 with tab2:
-    st.header("🔥 Threat of the Day")
-    threats = db_handler.fetch_all_threats()
-    threat_options = {t['name']: t['id'] for t in threats}
-
-    selected_threat_name = st.selectbox("Select a Threat", options=threat_options.keys())
-
-    if selected_threat_name:
-        threat_id = threat_options[selected_threat_name]
-        st.session_state.threat_of_day_id = threat_id
-        threat = db_handler.get_threat_by_id(threat_id)
-        
-        st.subheader(f"Editing: {threat['name']}")
-        
-        # Status display with color coding
-        status = threat.get('status', 'draft')
-        status_color = {
-            'accepted': '🟢',
-            'pending': '🟡', 
-            'draft': '⚪',
-            'archived': '⚫'
-        }.get(status, '⚪')
-        
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            st.text(f"Type: {threat.get('type', 'N/A')} | Country: {threat.get('country_of_origin', 'N/A')}")
-        with col2:
-            st.markdown(f"**Status:** {status_color} {status.title()}")
-
-        tod_summary = st.text_area(
-            "Threat of the Day Summary", 
-            value=threat.get('tod_summary', ''), 
-            height=200,
-            key=f"tod_summary_{threat_id}"
-        )
-
-        # Action buttons
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            if st.button("💾 Save Summary", key=f"save_threat_{threat_id}"):
-                db_handler.update_threat(threat_id, {'tod_summary': tod_summary})
-                st.toast("Threat summary saved!", icon="✅")
-                st.rerun()
-        
-        with col2:
-            if status != 'accepted':
-                if st.button("✅ Accept", key=f"accept_threat_{threat_id}"):
-                    try:
-                        # Update threat status to accepted
-                        response = requests.patch(f"{API_URL}/threats/{threat_id}", json={"status": "accepted"})
-                        response.raise_for_status()
-                        st.toast("Threat accepted!", icon="✅")
-                        st.rerun()
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"Failed to accept threat: {e}")
-            else:
-                if st.button("↩️ Un-accept", key=f"unaccept_threat_{threat_id}"):
-                    try:
-                        # Update threat status back to draft
-                        response = requests.patch(f"{API_URL}/threats/{threat_id}", json={"status": "draft"})
-                        response.raise_for_status()
-                        st.toast("Threat un-accepted!", icon="↩️")
-                        st.rerun()
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"Failed to un-accept threat: {e}")
-        
-        with col3:
-            if st.button("📦 Archive", key=f"archive_threat_{threat_id}"):
-                try:
-                    response = requests.patch(f"{API_URL}/threats/{threat_id}", json={"status": "archived"})
-                    response.raise_for_status()
-                    st.toast("Threat archived!", icon="📦")
-                    st.rerun()
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Failed to archive threat: {e}")
-        
-        with col4:
-            if st.button("🗑️ Delete", key=f"delete_threat_{threat_id}"):
-                try:
-                    response = requests.delete(f"{API_URL}/threats/{threat_id}")
-                    response.raise_for_status()
-                    st.toast("Threat deleted!", icon="🗑️")
-                    # Clear session state if this was the selected threat
-                    if st.session_state.threat_of_day_id == threat_id:
-                        st.session_state.threat_of_day_id = None
-                    st.rerun()
-                except requests.exceptions.RequestException as e:
-                    st.error(f"Failed to delete threat: {e}")
-
-with tab3:
     st.markdown("#### 🔍 Threat Research")
     st.markdown("Research military threats using Perplexity AI and generate formatted threat profiles.")
     
@@ -524,7 +433,7 @@ with tab3:
             - 📋 **Formatted output** ready for newsletter use
             """)
 
-with tab4:
+with tab3:
     st.markdown("#### 📝 Podcast/YouTube Transcript Builder")
     
     # Get accepted articles for transcript
@@ -615,7 +524,7 @@ with tab4:
             col1, col2 = st.columns(2)
             with col1:
                 include_intro = st.checkbox("Include Intro", value=True)
-                include_threat_of_day = st.checkbox("Include Threat of the Day", value=True)
+                include_threat_of_day = st.checkbox("Include Threat Analysis", value=True)
             with col2:
                 include_outro = st.checkbox("Include Outro", value=True)
                 conversational_tone = st.checkbox("Conversational Tone", value=True)
@@ -659,34 +568,33 @@ Welcome back to The Lowdown, your essential briefing on the latest developments 
 
 """
                 
-                # Threat of the Day
+                # Threat Research Section
                 if include_threat_of_day:
-                    # Get accepted threats
-                    accepted_threats = [t for t in db_handler.fetch_all_threats() if t.get('status') == 'accepted']
-                    
-                    if accepted_threats:
-                        # Use the first accepted threat, or the selected one if it's accepted
-                        threat_of_day = None
-                        if st.session_state.threat_of_day_id:
-                            selected_threat = db_handler.get_threat_by_id(st.session_state.threat_of_day_id)
-                            if selected_threat and selected_threat.get('status') == 'accepted':
-                                threat_of_day = selected_threat
+                    # Check if we have any researched threats in session state
+                    if hasattr(st.session_state, 'threat_research_data') and st.session_state.threat_research_data:
+                        research_data = st.session_state.threat_research_data
+                        threat_name = st.session_state.get('researched_threat', 'Unknown Threat')
                         
-                        # If no accepted selected threat, use the first accepted one
-                        if not threat_of_day:
-                            threat_of_day = accepted_threats[0]
-                        
-                        transcript += f"""## Threat of the Day: {threat_of_day['name']}
+                        if research_data.get("success") and research_data.get("research_format"):
+                            transcript += f"""## Threat Analysis: {threat_name}
 
-{threat_of_day.get('tod_summary', 'No summary available')}
+{research_data['research_format']}
+
+---
+
+"""
+                        else:
+                            transcript += f"""## Threat Analysis: {threat_name}
+
+*Research data not available for this threat.*
 
 ---
 
 """
                     else:
-                        transcript += """## Threat of the Day
+                        transcript += """## Threat Analysis
 
-*No accepted threats available. Please accept a threat in the 'Threat of the Day' tab.*
+*No threat research available. Please research a threat in the 'Threat Research' tab and try again.*
 
 ---
 
@@ -749,17 +657,12 @@ I'm [HOST NAME], thanks for listening, and we'll see you next time on The Lowdow
             - 🎯 **Conversational Tone**: Written for natural narration
             """)
 
-with tab5:
+with tab4:
     st.markdown("#### 🚀 Export Newsletter")
 
     # 1. Get Accepted Articles
     accepted_articles = [a for a in fetch_articles_from_api() if a['status'] == 'accepted']
     
-    # 2. Get Threat of the Day
-    threat_of_day = None
-    if st.session_state.threat_of_day_id:
-        threat_of_day = db_handler.get_threat_by_id(st.session_state.threat_of_day_id)
-
     if not accepted_articles:
         st.warning("No 'accepted' articles to export. Please accept some articles in the 'Article Curation' tab.")
     else:
@@ -770,10 +673,14 @@ with tab5:
         for article in accepted_articles:
             final_content += format_summary_for_export(article) + "\n\n---\n\n"
         
-        if threat_of_day and threat_of_day.get('tod_summary'):
-            final_content += "## Threat of the Day\n\n"
-            final_content += f"**{threat_of_day['name']}**\n\n"
-            final_content += threat_of_day['tod_summary']
+        # Add threat research if available in session state
+        if hasattr(st.session_state, 'threat_research_data') and st.session_state.threat_research_data:
+            research_data = st.session_state.threat_research_data
+            threat_name = st.session_state.get('researched_threat', 'Unknown Threat')
+            
+            if research_data.get("success") and research_data.get("newsletter_format"):
+                final_content += "## Threat Analysis\n\n"
+                final_content += research_data['newsletter_format']
 
         st.text_area("Copy to Beehiiv", value=final_content, height=400)
         st.caption("Click in the box and press Cmd+A then Cmd+C to copy.")
@@ -781,6 +688,10 @@ with tab5:
         if st.button("Archive Articles & Clear", type="primary"):
             for article in accepted_articles:
                 db_handler.update_article(article['id'], status='archived')
-            st.session_state.threat_of_day_id = None
+            # Clear threat research data if present
+            if hasattr(st.session_state, 'threat_research_data'):
+                del st.session_state.threat_research_data
+            if hasattr(st.session_state, 'researched_threat'):
+                del st.session_state.researched_threat
             st.toast("Newsletter content archived!", icon="📦")
             st.rerun()
