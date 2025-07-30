@@ -69,7 +69,7 @@ st.title("The Lowdown - Content Curation")
 # (Threat research data will be stored in session state as needed)
 
 # --- TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["📝 Article Curation", "🔍 Threat Research", "📝 Transcript", "🚀 Export"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 Article Curation", "📸 Snapshot", "🔍 Threat Research", "📝 Transcript", "🚀 Export"])
 
 with tab1:
     col1, col2 = st.columns([1, 2])
@@ -222,6 +222,225 @@ with tab1:
                             st.error(f"Failed to delete article: {e}")
 
 with tab2:
+    st.markdown("#### 📸 Snapshot Section")
+    st.markdown("Create concise 1-sentence highlights for quick scanning. Perfect for rapid news consumption.")
+    
+    def fetch_snapshots_from_api():
+        """Fetch snapshots from the backend API"""
+        try:
+            response = requests.get(f"{API_URL}/snapshots")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                st.error(f"Failed to fetch snapshots: {response.status_code}")
+                return []
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error connecting to API: {e}")
+            return []
+    
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.subheader("📥 Input")
+        with st.form("add_snapshots_form"):
+            urls_to_add = st.text_area("Article URLs", height=150, placeholder="Paste one or more URLs, one per line...")
+            submit_button = st.form_submit_button("Import Snapshots", type="primary")
+            
+            if submit_button and urls_to_add.strip():
+                urls = [url.strip() for url in urls_to_add.split('\n') if url.strip()]
+                for url in urls:
+                    try:
+                        response = requests.post(f"{API_URL}/snapshots", json={"url": url})
+                        if response.status_code == 200:
+                            st.success(f"✅ Added: {url}")
+                        else:
+                            st.warning(f"⚠️ Failed to add: {url}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"❌ Error adding {url}: {e}")
+                st.rerun()
+        
+        st.subheader("⚙️ Actions")
+        if st.button("Highlight All Pending Snapshots", type="secondary"):
+            snapshots = fetch_snapshots_from_api()
+            pending_snapshots = [s for s in snapshots if s['status'] == 'pending']
+            
+            if pending_snapshots:
+                progress_bar = st.progress(0)
+                for i, snapshot in enumerate(pending_snapshots):
+                    try:
+                        response = requests.post(f"{API_URL}/highlight", json={"snapshot_id": snapshot['id']})
+                        if response.status_code == 200:
+                            st.success(f"✅ Highlighted: {snapshot.get('title', snapshot['url'])}")
+                        else:
+                            st.error(f"❌ Failed to highlight: {snapshot.get('title', snapshot['url'])}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"❌ Error highlighting: {e}")
+                    progress_bar.progress((i + 1) / len(pending_snapshots))
+                st.rerun()
+            else:
+                st.info("No pending snapshots to highlight.")
+
+    with col2:
+        st.subheader("📸 Snapshots")
+        snapshots = fetch_snapshots_from_api()
+        
+        if not snapshots:
+            st.info("No snapshots found. Add some URLs to get started!")
+        else:
+            for snapshot in snapshots:
+                # Status emoji mapping
+                status_emojis = {
+                    'pending': '⏳',
+                    'highlighted': '✨', 
+                    'accepted': '✅',
+                    'archived': '📦'
+                }
+                
+                status_emoji = status_emojis.get(snapshot['status'], '❓')
+                
+                with st.expander(f"{status_emoji} #{snapshot['id']} | Status: {snapshot['status']} | Source: {snapshot.get('source', 'manual_add')}"):
+                    
+                    # Show scraping error if exists
+                    if snapshot['status'] == 'pending':
+                        if 'scraping_failed' in str(snapshot.get('highlight', '')):
+                            st.error("Scraping error: 400: Failed to fetch or parse article content: No content found.")
+                    
+                    # Show highlight if available
+                    if snapshot.get('highlight'):
+                        st.markdown("**Highlight:**")
+                        st.markdown(snapshot['highlight'])
+                    
+                    # Manual content option
+                    with st.expander("✏️ Manual Content (Bypass Web Scraping)"):
+                        manual_content = st.text_area(
+                            "Paste article content here:",
+                            height=200,
+                            key=f"manual_content_{snapshot['id']}",
+                            placeholder="Paste the full article text here to bypass web scraping..."
+                        )
+                        
+                        if st.button("Generate Highlight from Manual Content", key=f"manual_highlight_{snapshot['id']}"):
+                            if manual_content.strip():
+                                try:
+                                    response = requests.post(
+                                        f"{API_URL}/highlight-manual",
+                                        json={"snapshot_id": snapshot['id'], "manual_content": manual_content}
+                                    )
+                                    if response.status_code == 200:
+                                        st.success("✅ Highlight generated successfully!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Failed to generate highlight: {response.status_code}")
+                                except requests.exceptions.RequestException as e:
+                                    st.error(f"❌ Error: {e}")
+                            else:
+                                st.warning("Please paste some content first.")
+                    
+                    # Action buttons
+                    col_a, col_b, col_c, col_d = st.columns(4)
+                    
+                    with col_a:
+                        if st.button("Re-highlight", key=f"rehighlight_{snapshot['id']}"):
+                            try:
+                                response = requests.post(f"{API_URL}/highlight", json={"snapshot_id": snapshot['id']})
+                                if response.status_code == 200:
+                                    st.success("✅ Re-highlighted!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed: {response.status_code}")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"❌ Error: {e}")
+                    
+                    with col_b:
+                        if snapshot['status'] != 'accepted':
+                            if st.button("✅ Accept", key=f"accept_{snapshot['id']}"):
+                                try:
+                                    response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "accepted"})
+                                    if response.status_code == 200:
+                                        st.success("✅ Accepted!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Failed: {response.status_code}")
+                                except requests.exceptions.RequestException as e:
+                                    st.error(f"❌ Error: {e}")
+                        else:
+                            if st.button("↩️ Un-accept", key=f"unaccept_{snapshot['id']}"):
+                                try:
+                                    response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "highlighted"})
+                                    if response.status_code == 200:
+                                        st.success("↩️ Un-accepted!")
+                                        st.rerun()
+                                    else:
+                                        st.error(f"❌ Failed: {response.status_code}")
+                                except requests.exceptions.RequestException as e:
+                                    st.error(f"❌ Error: {e}")
+                    
+                    with col_c:
+                        if st.button("Archive", key=f"archive_{snapshot['id']}"):
+                            try:
+                                response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "archived"})
+                                if response.status_code == 200:
+                                    st.success("📦 Archived!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed: {response.status_code}")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"❌ Error: {e}")
+                    
+                    with col_d:
+                        if st.button("🗑️ Delete", key=f"delete_{snapshot['id']}"):
+                            try:
+                                response = requests.delete(f"{API_URL}/snapshots/{snapshot['id']}")
+                                if response.status_code == 204:
+                                    st.success("🗑️ Deleted!")
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Failed: {response.status_code}")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"❌ Error: {e}")
+        
+        # --- Snapshot Export Section ---
+        st.markdown("---")
+        st.subheader("📋 Snapshot Export")
+        
+        # Get accepted snapshots for export
+        accepted_snapshots = [s for s in snapshots if s['status'] == 'accepted']
+        
+        if not accepted_snapshots:
+            st.info("No accepted snapshots to export. Accept some snapshots above to include them in your newsletter.")
+        else:
+            st.markdown(f"**{len(accepted_snapshots)} accepted snapshot(s) ready for export:**")
+            
+            # Build the snapshot content for export
+            snapshot_content = ""
+            for snapshot in accepted_snapshots:
+                if snapshot.get('highlight'):
+                    snapshot_content += snapshot['highlight'] + "\n\n"
+            
+            if snapshot_content.strip():
+                st.text_area(
+                    "Copy to Newsletter", 
+                    value=snapshot_content.strip(), 
+                    height=200,
+                    help="Click in the box and press Cmd+A then Cmd+C to copy all accepted snapshot highlights."
+                )
+                st.caption("📋 Click in the box and press Cmd+A then Cmd+C to copy.")
+                
+                # Archive button for accepted snapshots
+                if st.button("📦 Archive All Accepted Snapshots", type="secondary"):
+                    for snapshot in accepted_snapshots:
+                        try:
+                            response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "archived"})
+                            if response.status_code == 200:
+                                st.success(f"📦 Archived snapshot #{snapshot['id']}")
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"❌ Error archiving snapshot #{snapshot['id']}: {e}")
+                    st.toast("Snapshots archived!", icon="📦")
+                    st.rerun()
+            else:
+                st.warning("Accepted snapshots don't have highlights yet. Try re-highlighting them.")
+
+with tab3:
     st.markdown("#### 🔍 Threat Research")
     st.markdown("Research military threats using Perplexity AI and generate formatted threat profiles.")
     
@@ -433,7 +652,7 @@ with tab2:
             - 📋 **Formatted output** ready for newsletter use
             """)
 
-with tab3:
+with tab4:
     st.markdown("#### 📝 Podcast/YouTube Transcript Builder")
     
     # Get accepted articles for transcript
@@ -657,7 +876,7 @@ I'm [HOST NAME], thanks for listening, and we'll see you next time on The Lowdow
             - 🎯 **Conversational Tone**: Written for natural narration
             """)
 
-with tab4:
+with tab5:
     st.markdown("#### 🚀 Export Newsletter")
 
     # 1. Get Accepted Articles

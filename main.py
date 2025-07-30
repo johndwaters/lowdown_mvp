@@ -115,6 +115,38 @@ class PodcastEpisodeUpdate(BaseModel):
     published_date: Optional[str] = None
     image_url: Optional[str] = None
 
+class SnapshotCreate(BaseModel):
+    url: str
+    title: Optional[str] = None
+    highlight: Optional[str] = None
+    source: Optional[str] = 'Manual'
+
+class Snapshot(BaseModel):
+    id: int
+    url: str
+    title: Optional[str] = None
+    source: Optional[str] = None
+    highlight: Optional[str] = None
+    status: str
+    original_content: Optional[str] = None
+    created_at: str
+    updated_at: str
+    model_config = ConfigDict(from_attributes=True)
+
+class SnapshotUpdate(BaseModel):
+    url: Optional[str] = None
+    title: Optional[str] = None
+    source: Optional[str] = None
+    highlight: Optional[str] = None
+    status: Optional[str] = None
+
+class HighlightRequest(BaseModel):
+    snapshot_id: int
+
+class ManualHighlightRequest(BaseModel):
+    snapshot_id: int
+    manual_content: str
+
 class SummarizeRequest(BaseModel):
     article_id: int
 
@@ -275,6 +307,186 @@ def delete_podcast_episode(episode_id: int):
     if not db_handler.delete_podcast_episode(episode_id):
         raise HTTPException(status_code=404, detail="Podcast episode not found.")
     return
+
+# --- Snapshots Endpoints ---
+@app.get("/snapshots", response_model=List[Snapshot])
+def get_snapshots():
+    return db_handler.fetch_all_snapshots()
+
+@app.get("/snapshots/{snapshot_id}", response_model=Snapshot)
+def get_snapshot(snapshot_id: int):
+    snapshot = db_handler.get_snapshot_by_id(snapshot_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found.")
+    return snapshot
+
+@app.post("/snapshots", response_model=Snapshot)
+def create_snapshot(snapshot: SnapshotCreate):
+    try:
+        new_snapshot = db_handler.add_snapshot(
+            url=snapshot.url,
+            title=snapshot.title or "",
+            source=snapshot.source or "Manual",
+            highlight=snapshot.highlight or ""
+        )
+        if not new_snapshot:
+            raise HTTPException(status_code=400, detail="Failed to create snapshot. URL may already exist.")
+        return new_snapshot
+    except Exception as e:
+        print(f"Error creating snapshot: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error.")
+
+@app.patch("/snapshots/{snapshot_id}", response_model=Snapshot)
+def update_snapshot(snapshot_id: int, snapshot_update: SnapshotUpdate):
+    update_data = snapshot_update.model_dump(exclude_unset=True)
+    updated_snapshot = db_handler.update_snapshot(snapshot_id, **update_data)
+    if not updated_snapshot:
+        raise HTTPException(status_code=404, detail="Snapshot not found or update failed.")
+    return updated_snapshot
+
+@app.delete("/snapshots/{snapshot_id}", status_code=204)
+def delete_snapshot(snapshot_id: int):
+    if not db_handler.delete_snapshot(snapshot_id):
+        raise HTTPException(status_code=404, detail="Snapshot not found.")
+    return
+
+@app.post("/highlight", response_model=Snapshot)
+def highlight_snapshot(request: HighlightRequest):
+    print(f"--- Highlighting started for snapshot_id: {request.snapshot_id} ---")
+    snapshot = db_handler.get_snapshot_by_id(request.snapshot_id)
+    if not snapshot:
+        print(f"ERROR: Snapshot not found for snapshot_id: {request.snapshot_id}")
+        raise HTTPException(status_code=404, detail="Snapshot not found.")
+
+    print(f"Step 1: Scraping content from {snapshot['url']}")
+    try:
+        scraped_content = web_scraper.fetch_and_parse_url(snapshot['url'])
+        if not scraped_content or scraped_content.strip() == "":
+            print(f"ERROR: Failed to scrape content from {snapshot['url']}")
+            raise HTTPException(status_code=400, detail="Failed to scrape content from URL.")
+    except Exception as e:
+        print(f"ERROR: Web scraping failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Web scraping failed: {str(e)}")
+
+    print(f"Step 2: Generating 1-sentence highlight with AI")
+    try:
+        # Create a special prompt for 1-sentence highlights
+        highlight_prompt = f"""You must create ONLY a single sentence highlight that starts with a red flag emoji (🚩).
+        
+Format: 🚩 [single sentence with key facts and numbers] ([more]({snapshot['url']}))
+        
+Example: 🚩 Senate has given the green light for Lohmeier to serve as the 29th under-secretary of the Air Force. ([more](https://example.com))
+        
+Article content:
+        {scraped_content}
+        
+Provide ONLY the single sentence with red flag emoji and (more) link:"""
+        
+        # Create a simple direct prompt for OpenAI instead of using the newsletter summary function
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            highlight = f"🚩 Unable to generate highlight - OpenAI API key not configured."
+        else:
+            import openai
+            client = openai.OpenAI(api_key=api_key)
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You create single-sentence news highlights. Always start with a red flag (🚩) followed by exactly one sentence. No titles, no links, no formatting, no multiple sentences."},
+                        {"role": "user", "content": highlight_prompt}
+                    ],
+                    max_tokens=100,
+                    temperature=0.7
+                )
+                highlight = response.choices[0].message.content.strip()
+            except Exception as e:
+                highlight = f"▶ Error generating highlight: {str(e)}"
+                print(f"OpenAI API error: {e}")
+        if not highlight or highlight.strip() == "":
+            print("ERROR: AI service returned empty highlight")
+            raise HTTPException(status_code=500, detail="AI service failed to generate highlight.")
+    except Exception as e:
+        print(f"ERROR: AI highlighting failed: {e}")
+        raise HTTPException(status_code=500, detail=f"AI highlighting failed: {str(e)}")
+
+    print(f"Step 3: Updating snapshot in database")
+    success = db_handler.update_snapshot_highlight(request.snapshot_id, highlight, scraped_content)
+    if not success:
+        print(f"ERROR: Failed to update snapshot {request.snapshot_id} in database")
+        raise HTTPException(status_code=500, detail="Failed to update snapshot in database.")
+
+    # Return the updated snapshot
+    updated_snapshot = db_handler.get_snapshot_by_id(request.snapshot_id)
+    print(f"--- Highlighting completed successfully for snapshot_id: {request.snapshot_id} ---")
+    return updated_snapshot
+
+@app.post("/highlight-manual", response_model=Snapshot)
+def highlight_snapshot_manual(request: ManualHighlightRequest):
+    print(f"--- Manual highlighting started for snapshot_id: {request.snapshot_id} ---")
+    snapshot = db_handler.get_snapshot_by_id(request.snapshot_id)
+    if not snapshot:
+        print(f"ERROR: Snapshot not found for snapshot_id: {request.snapshot_id}")
+        raise HTTPException(status_code=404, detail="Snapshot not found.")
+
+    print(f"Step 1: Using provided manual content")
+    manual_content = request.manual_content.strip()
+    if not manual_content:
+        print("ERROR: Manual content is empty")
+        raise HTTPException(status_code=400, detail="Manual content cannot be empty.")
+
+    print(f"Step 2: Generating 1-sentence highlight with AI")
+    try:
+        # Create a special prompt for 1-sentence highlights
+        highlight_prompt = f"""You must create ONLY a single sentence highlight that starts with a red flag emoji (🚩).
+        
+Format: 🚩 [single sentence with key facts and numbers] ([more]({snapshot['url']}))
+        
+Example: 🚩 Senate has given the green light for Lohmeier to serve as the 29th under-secretary of the Air Force. ([more](https://example.com))
+        
+Article content:
+        {manual_content}
+        
+Provide ONLY the single sentence with red flag emoji and (more) link:"""
+        
+        # Create a simple direct prompt for OpenAI instead of using the newsletter summary function
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            highlight = f"🚩 Unable to generate highlight - OpenAI API key not configured."
+        else:
+            import openai
+            client = openai.OpenAI(api_key=api_key)
+            try:
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You create single-sentence news highlights. Always start with a red flag (🚩) followed by exactly one sentence. No titles, no links, no formatting, no multiple sentences."},
+                        {"role": "user", "content": highlight_prompt}
+                    ],
+                    max_tokens=100,
+                    temperature=0.7
+                )
+                highlight = response.choices[0].message.content.strip()
+            except Exception as e:
+                highlight = f"▶ Error generating highlight: {str(e)}"
+                print(f"OpenAI API error: {e}")
+        if not highlight or highlight.strip() == "":
+            print("ERROR: AI service returned empty highlight")
+            raise HTTPException(status_code=500, detail="AI service failed to generate highlight.")
+    except Exception as e:
+        print(f"ERROR: AI highlighting failed: {e}")
+        raise HTTPException(status_code=500, detail=f"AI highlighting failed: {str(e)}")
+
+    print(f"Step 3: Updating snapshot in database")
+    success = db_handler.update_snapshot_highlight(request.snapshot_id, highlight, manual_content)
+    if not success:
+        print(f"ERROR: Failed to update snapshot {request.snapshot_id} in database")
+        raise HTTPException(status_code=500, detail="Failed to update snapshot in database.")
+
+    # Return the updated snapshot
+    updated_snapshot = db_handler.get_snapshot_by_id(request.snapshot_id)
+    print(f"--- Manual highlighting completed successfully for snapshot_id: {request.snapshot_id} ---")
+    return updated_snapshot
 
 @app.post("/summarize", response_model=Article)
 def summarize_article(request: SummarizeRequest):

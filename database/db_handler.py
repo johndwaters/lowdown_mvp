@@ -228,6 +228,177 @@ def delete_article(article_id: int) -> bool:
         conn.close()
         return False
 
+# --- Snapshot Functions ---
+def fetch_all_snapshots():
+    """Fetches all non-archived snapshots from the database, ordered by position."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Snapshots WHERE status != 'archived' ORDER BY position ASC, created_at DESC")
+    snapshots = cursor.fetchall()
+    conn.close()
+    return snapshots
+
+def add_snapshot(url: str, title: str = "", source: str = "", highlight: str = "", status: str = "pending", position: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """
+    Adds a new snapshot. If a snapshot with the same URL exists and is
+    archived, it un-archives it by setting its status to 'pending' and
+    moving it to the top of the list. Otherwise, it returns None for conflicts.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if URL already exists
+    cursor.execute("SELECT * FROM Snapshots WHERE url = ?", (url,))
+    existing = cursor.fetchone()
+    
+    if existing:
+        if existing['status'] == 'archived':
+            # Un-archive and move to top
+            cursor.execute(
+                "UPDATE Snapshots SET status = 'pending', position = 1, updated_at = CURRENT_TIMESTAMP WHERE url = ?",
+                (url,)
+            )
+            # Shift other snapshots down
+            cursor.execute(
+                "UPDATE Snapshots SET position = position + 1 WHERE url != ? AND position >= 1",
+                (url,)
+            )
+            conn.commit()
+            
+            # Return the updated snapshot
+            cursor.execute("SELECT * FROM Snapshots WHERE url = ?", (url,))
+            updated_snapshot = cursor.fetchone()
+            conn.close()
+            return updated_snapshot
+        else:
+            # URL already exists and is not archived
+            conn.close()
+            return None
+    
+    # Determine position
+    if position is None:
+        cursor.execute("SELECT MAX(position) as max_pos FROM Snapshots WHERE status != 'archived'")
+        result = cursor.fetchone()
+        position = (result['max_pos'] or 0) + 1
+    
+    # Insert new snapshot
+    try:
+        cursor.execute(
+            "INSERT INTO Snapshots (url, title, source, highlight, status, position) VALUES (?, ?, ?, ?, ?, ?)",
+            (url, title, source, highlight, status, position)
+        )
+        conn.commit()
+        snapshot_id = cursor.lastrowid
+        
+        # Return the newly created snapshot
+        cursor.execute("SELECT * FROM Snapshots WHERE id = ?", (snapshot_id,))
+        new_snapshot = cursor.fetchone()
+        conn.close()
+        return new_snapshot
+    except sqlite3.Error as e:
+        print(f"Database error in add_snapshot: {e}")
+        conn.close()
+        return None
+
+def get_snapshot_by_id(snapshot_id: int) -> Optional[Dict[str, Any]]:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Snapshots WHERE id = ?", (snapshot_id,))
+    snapshot = cursor.fetchone()
+    conn.close()
+    return snapshot
+
+def update_snapshot_highlight(snapshot_id: int, highlight: str, original_content: str) -> bool:
+    """Updates a snapshot's highlight and original content."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE Snapshots SET highlight = ?, original_content = ?, status = 'highlighted', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (highlight, original_content, snapshot_id)
+        )
+        conn.commit()
+        success = cursor.rowcount > 0
+        conn.close()
+        return success
+    except sqlite3.Error as e:
+        print(f"Database error in update_snapshot_highlight: {e}")
+        conn.close()
+        return False
+
+def update_snapshot(snapshot_id: int, **update_data) -> Optional[Dict[str, Any]]:
+    """Updates a snapshot with the given data."""
+    if not update_data:
+        return get_snapshot_by_id(snapshot_id)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    fields = []
+    values = []
+    for key, value in update_data.items():
+        if key in ['url', 'title', 'source', 'original_content', 'highlight', 'status', 'position']:
+            fields.append(f"{key} = ?")
+            values.append(value)
+
+    if not fields:
+        conn.close()
+        return get_snapshot_by_id(snapshot_id)
+
+    fields.append("updated_at = CURRENT_TIMESTAMP")
+    
+    sql = f"UPDATE Snapshots SET {', '.join(fields)} WHERE id = ?"
+    values.append(snapshot_id)
+
+    try:
+        cursor.execute(sql, tuple(values))
+        conn.commit()
+    except sqlite3.Error:
+        conn.close()
+        return None
+
+    if cursor.rowcount == 0:
+        conn.close()
+        return None
+
+    cursor.execute("SELECT * FROM Snapshots WHERE id = ?", (snapshot_id,))
+    updated_snapshot = cursor.fetchone()
+    conn.close()
+    return updated_snapshot
+
+def delete_snapshot(snapshot_id: int) -> bool:
+    """Deletes a snapshot by its ID and re-indexes the positions of remaining snapshots."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get the position of the snapshot to be deleted
+        cursor.execute("SELECT position FROM Snapshots WHERE id = ?", (snapshot_id,))
+        result = cursor.fetchone()
+        if not result:
+            conn.close()
+            return False
+        
+        deleted_position = result['position']
+        
+        # Delete the snapshot
+        cursor.execute("DELETE FROM Snapshots WHERE id = ?", (snapshot_id,))
+        
+        # Re-index positions of remaining snapshots
+        if deleted_position:
+            cursor.execute(
+                "UPDATE Snapshots SET position = position - 1 WHERE position > ?",
+                (deleted_position,)
+            )
+        
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Database error in delete_snapshot: {e}")
+        conn.close()
+        return False
+
 # --- Threat Functions ---
 def _parse_threat_json_fields(threat: Dict[str, Any]) -> Dict[str, Any]:
     if threat:

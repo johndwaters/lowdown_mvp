@@ -46,7 +46,24 @@ CREATE TABLE IF NOT EXISTS Threats (
 );
 
 --------------------------------------------------------------------------------
--- 3. PodcastEpisodes Table
+-- 3. Snapshots Table
+-- Stores snapshot articles with 1-sentence highlights for quick scanning.
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS Snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL UNIQUE,
+    title TEXT,
+    source TEXT DEFAULT 'Manual',
+    original_content TEXT,
+    highlight TEXT, -- 1-sentence AI-generated highlight
+    status TEXT NOT NULL DEFAULT 'pending', -- e.g., pending, highlighted, accepted, archived
+    position INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+--------------------------------------------------------------------------------
+-- 4. PodcastEpisodes Table
 -- Stores metadata for podcast episodes.
 --------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS PodcastEpisodes (
