@@ -1,0 +1,222 @@
+/* The Lowdown - Grok-Inspired Military Theme */
+/* OD Green Camouflage Color Palette */
+
+:root {
+    --od-green-primary: #4A5D23;
+    --od-green-dark: #3A4A1C;
+    --od-green-light: #5A6D33;
+    --military-bg: #0F1419;
+    --panel-bg: #1A2332;
+    --text-primary: #E8E8E8;
+    --text-secondary: #B8C5D1;
+    --accent-orange: #FF6B35;
+    --warning-red: #DC3545;
+    --success-green: #28A745;
+}
+
+/* Main App Styling */
+.stApp {
+    background: linear-gradient(135deg, var(--military-bg) 0%, #1A2332 100%);
+    color: var(--text-primary);
+}
+
+/* Header and Title Styling */
+.main-header {
+    background: linear-gradient(90deg, var(--od-green-dark), var(--od-green-primary));
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 2px solid var(--od-green-light);
+}
+
+/* Button Styling - Military Theme */
+.stButton > button {
+    background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
+    color: var(--text-primary) !important;
+    border: 2px solid var(--od-green-light) !important;
+    border-radius: 6px !important;
+    font-weight: bold !important;
+    font-family: 'Courier New', monospace !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(135deg, var(--od-green-light), var(--od-green-primary)) !important;
+    border-color: var(--accent-orange) !important;
+    box-shadow: 0 4px 8px rgba(74, 93, 35, 0.4) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Primary Button Styling */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, var(--accent-orange), #E55A2B) !important;
+    border-color: var(--accent-orange) !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #FF7B45, var(--accent-orange)) !important;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4) !important;
+}
+
+/* Secondary Button Styling */
+.stButton > button[kind="secondary"] {
+    background: linear-gradient(135deg, var(--panel-bg), #2A3442) !important;
+    border-color: var(--od-green-primary) !important;
+}
+
+/* Tab Styling - Military Theme */
+.stTabs [data-baseweb="tab-list"] {
+    background: var(--panel-bg);
+    border-radius: 8px;
+    padding: 0.5rem;
+    border: 2px solid var(--od-green-primary);
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    font-family: 'Courier New', monospace !important;
+    font-weight: bold !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border-radius: 4px !important;
+    margin: 0 2px !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--od-green-light) !important;
+}
+
+/* Text Area Styling */
+.stTextArea > div > div > textarea {
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
+    border: 2px solid var(--od-green-primary) !important;
+    border-radius: 6px !important;
+    font-family: 'Courier New', monospace !important;
+}
+
+/* Text Input Styling */
+.stTextInput > div > div > input {
+    background: var(--panel-bg) !important;
+    color: var(--text-primary) !important;
+    border: 2px solid var(--od-green-primary) !important;
+    border-radius: 6px !important;
+    font-family: 'Courier New', monospace !important;
+}
+
+/* Selectbox Styling */
+.stSelectbox > div > div {
+    background: var(--panel-bg) !important;
+    border: 2px solid var(--od-green-primary) !important;
+    border-radius: 6px !important;
+}
+
+/* Metric Styling - Military Dashboard */
+.metric-container {
+    background: linear-gradient(135deg, var(--panel-bg), #243040);
+    border: 2px solid var(--od-green-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+}
+
+/* Alert/Info Styling */
+.stAlert {
+    background: var(--panel-bg) !important;
+    border-left: 4px solid var(--od-green-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Success Messages */
+.stSuccess {
+    background: rgba(40, 167, 69, 0.1) !important;
+    border-left: 4px solid var(--success-green) !important;
+    color: var(--success-green) !important;
+}
+
+/* Warning Messages */
+.stWarning {
+    background: rgba(255, 107, 53, 0.1) !important;
+    border-left: 4px solid var(--accent-orange) !important;
+    color: var(--accent-orange) !important;
+}
+
+/* Error Messages */
+.stError {
+    background: rgba(220, 53, 69, 0.1) !important;
+    border-left: 4px solid var(--warning-red) !important;
+    color: var(--warning-red) !important;
+}
+
+/* Sidebar Styling */
+.css-1d391kg {
+    background: var(--panel-bg) !important;
+    border-right: 2px solid var(--od-green-primary) !important;
+}
+
+/* Code Block Styling */
+.stCode {
+    background: var(--panel-bg) !important;
+    border: 1px solid var(--od-green-primary) !important;
+    border-radius: 6px !important;
+    color: var(--text-primary) !important;
+}
+
+/* Dataframe Styling */
+.stDataFrame {
+    background: var(--panel-bg) !important;
+    border: 2px solid var(--od-green-primary) !important;
+    border-radius: 8px !important;
+}
+
+/* Custom Military Headers */
+.military-header {
+    background: linear-gradient(90deg, var(--od-green-dark), var(--od-green-primary));
+    color: var(--text-primary);
+    padding: 0.8rem 1.2rem;
+    border-radius: 6px;
+    border: 2px solid var(--od-green-light);
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin: 1rem 0;
+    text-align: center;
+}
+
+/* Status Indicators */
+.status-accepted {
+    color: var(--success-green) !important;
+    font-weight: bold !important;
+}
+
+.status-pending {
+    color: var(--accent-orange) !important;
+    font-weight: bold !important;
+}
+
+.status-archived {
+    color: var(--text-secondary) !important;
+    font-weight: bold !important;
+}
+
+/* Camouflage Pattern Accent */
+.camo-accent {
+    background: repeating-linear-gradient(
+        45deg,
+        var(--od-green-primary),
+        var(--od-green-primary) 10px,
+        var(--od-green-dark) 10px,
+        var(--od-green-dark) 20px,
+        var(--od-green-light) 20px,
+        var(--od-green-light) 30px
+    );
+    height: 4px;
+    border-radius: 2px;
+    margin: 1rem 0;
+}

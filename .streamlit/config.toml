@@ -3,3 +3,11 @@ port = 8506
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+# Grok-inspired Military Theme with OD Green Camouflage
+primaryColor = "#4A5D23"          # OD Green for primary buttons
+backgroundColor = "#0F1419"       # Dark military background
+secondaryBackgroundColor = "#1A2332" # Darker panels/cards
+textColor = "#E8E8E8"             # High contrast light text
+font = "monospace"               # Military/tactical font style

@@ -2,9 +2,67 @@
 import streamlit as st
 import requests
 from database import db_handler
+import json
+from pathlib import Path
 
 # --- Page Config ---
 st.set_page_config(page_title="The Lowdown Admin", layout="wide")
+
+# --- Load Military Theme CSS ---
+def load_css():
+    """Load custom military theme CSS"""
+    css_file = Path(__file__).parent / "style.css"
+    if css_file.exists():
+        with open(css_file) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    
+    # Additional inline CSS for Grok-inspired military theme
+    st.markdown("""
+    <style>
+    /* The Lowdown Military Header */
+    .main-title {
+        background: linear-gradient(90deg, #3A4A1C, #4A5D23, #5A6D33);
+        color: #E8E8E8;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border: 3px solid #5A6D33;
+        text-align: center;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(74, 93, 35, 0.3);
+    }
+    
+    .subtitle {
+        color: #B8C5D1;
+        font-family: 'Courier New', monospace;
+        text-align: center;
+        margin-top: -1rem;
+        margin-bottom: 2rem;
+        font-style: italic;
+    }
+    
+    /* Military Status Badges */
+    .status-badge {
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+    }
+    
+    .badge-accepted { background: #28A745; color: white; }
+    .badge-pending { background: #FF6B35; color: white; }
+    .badge-archived { background: #6C757D; color: white; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Load the military theme
+load_css()
 
 # --- Config ---
 API_URL = "http://127.0.0.1:8003"
@@ -62,8 +120,15 @@ def move_article(article_id, direction):
         db_handler.update_article(an_id, position=index)
     st.rerun()
 
-# --- Main App ---
-st.title("The Lowdown - Content Curation")
+# --- Military-Themed Header ---
+st.markdown("""
+<div class="main-title">
+    🎯 THE LOWDOWN ADMIN
+</div>
+<div class="subtitle">
+    [ CLASSIFIED ] Newsletter Content Management System [ CLASSIFIED ]
+</div>
+""", unsafe_allow_html=True)
 
 # --- Session State Initialization ---
 # (Threat research data will be stored in session state as needed)
