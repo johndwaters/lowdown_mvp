@@ -427,7 +427,7 @@ with tab2:
                 st.caption("📋 Click in the box and press Cmd+A then Cmd+C to copy.")
                 
                 # Archive button for accepted snapshots
-                if st.button("📦 Archive All Accepted Snapshots", type="secondary"):
+                if st.button("📦 Archive All Accepted Snapshots", type="secondary", key="snapshot_archive_btn"):
                     for snapshot in accepted_snapshots:
                         try:
                             response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "archived"})
@@ -653,228 +653,151 @@ with tab3:
             """)
 
 with tab4:
-    st.markdown("#### 📝 Podcast/YouTube Transcript Builder")
+    st.markdown("#### 🎤 Teleprompter Script Generator")
+    st.markdown("Generate professional news-style teleprompter scripts from your accepted articles and snapshots.")
     
-    # Get accepted articles for transcript
-    accepted_articles = [a for a in fetch_articles_from_api() if a['status'] == 'accepted']
-    
-    if not accepted_articles:
-        st.warning("No 'accepted' articles found. Please accept some articles in the 'Article Curation' tab first.")
-        st.info("💡 **How it works:** This page builds podcast/YouTube transcripts by taking your accepted articles and using Perplexity AI to add rich context, background, and expert analysis for each story.")
-    else:
-        st.success(f"📰 Found {len(accepted_articles)} accepted articles ready for transcript enhancement")
+    # Get accepted content counts
+    try:
+        articles_response = requests.get(f"{API_URL}/articles")
+        snapshots_response = requests.get(f"{API_URL}/snapshots")
         
-        # Article selection for context enhancement
-        st.subheader("🔍 Select Articles for Context Enhancement")
-        
-        # Initialize session state for transcript data
-        if 'transcript_data' not in st.session_state:
-            st.session_state.transcript_data = {}
-        
-        # Display articles with enhancement options
-        for i, article in enumerate(accepted_articles):
-            with st.expander(f"📄 {article['title'][:80]}...", expanded=False):
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.markdown(f"**Source:** {article['source']}")
-                    st.markdown(f"**Summary:** {article['summary'][:200]}...")
-                    if article.get('url'):
-                        st.markdown(f"**URL:** [Link]({article['url']})")
-                
-                with col2:
-                    article_key = f"article_{article['id']}"
-                    
-                    if st.button(f"🔍 Enhance with Context", key=f"enhance_{article['id']}"):
-                        with st.spinner(f"Adding context to: {article['title'][:50]}..."):
-                            try:
-                                # Create context enhancement prompt
-                                context_prompt = f"""
-                                Provide detailed background context and analysis for this news story:
-                                
-                                Title: {article['title']}
-                                Summary: {article['summary']}
-                                
-                                Please provide:
-                                1. Historical background and context
-                                2. Key stakeholders and implications
-                                3. Technical details and expert analysis
-                                4. Broader geopolitical significance
-                                5. Recent developments and trends
-                                
-                                Format as a detailed, conversational analysis suitable for podcast narration.
-                                """
-                                
-                                # Call Perplexity for context enhancement
-                                response = requests.post(
-                                    f"{API_URL}/research-threat",
-                                    json={"threat_name": context_prompt},
-                                    timeout=60
-                                )
-                                response.raise_for_status()
-                                context_data = response.json()
-                                
-                                if context_data["success"]:
-                                    # Store enhanced context
-                                    st.session_state.transcript_data[article_key] = {
-                                        'article': article,
-                                        'enhanced_context': context_data.get('research_content', ''),
-                                        'citations': context_data.get('citations', [])
-                                    }
-                                    st.success("✅ Context added successfully!")
-                                else:
-                                    st.error(f"❌ Enhancement failed: {context_data.get('error', 'Unknown error')}")
-                                    
-                            except Exception as e:
-                                st.error(f"❌ Failed to enhance article: {e}")
-                    
-                    # Show if already enhanced
-                    if article_key in st.session_state.transcript_data:
-                        st.success("✅ Enhanced")
-                        if st.button(f"🗑️ Remove", key=f"remove_{article['id']}"):
-                            del st.session_state.transcript_data[article_key]
-                            st.rerun()
-        
-        # Transcript Builder Section
-        if st.session_state.transcript_data:
-            st.subheader("🎙️ Transcript Builder")
+        if articles_response.status_code == 200 and snapshots_response.status_code == 200:
+            all_articles = articles_response.json()
+            all_snapshots = snapshots_response.json()
             
-            # Transcript structure options
-            col1, col2 = st.columns(2)
-            with col1:
-                include_intro = st.checkbox("Include Intro", value=True)
-                include_threat_of_day = st.checkbox("Include Threat Analysis", value=True)
-            with col2:
-                include_outro = st.checkbox("Include Outro", value=True)
-                conversational_tone = st.checkbox("Conversational Tone", value=True)
-            
-            if st.button("🎬 Generate Full Transcript", type="primary"):
-                transcript = ""
-                
-                # Intro
-                if include_intro:
-                    transcript += """# The Lowdown Podcast - Episode [NUMBER]
-
-## Introduction
-
-Welcome back to The Lowdown, your essential briefing on the latest developments in defense, security, and military technology. I'm [HOST NAME], and today we're diving deep into some significant stories that are shaping the strategic landscape.
-
----
-
-"""
-                
-                # Enhanced Articles
-                transcript += "## Today's Stories\n\n"
-                
-                for i, (article_key, data) in enumerate(st.session_state.transcript_data.items(), 1):
-                    article = data['article']
-                    context = data['enhanced_context']
-                    
-                    transcript += f"""### Story {i}: {article['title']}
-
-**Quick Summary:**
-{article['summary']}
-
-**Deep Dive Analysis:**
-{context}
-
-**Key Takeaways:**
-- [Add 2-3 key points for listeners]
-- [Highlight implications]
-- [Note what to watch for next]
-
----
-
-"""
-                
-                # Threat Research Section
-                if include_threat_of_day:
-                    # Check if we have any researched threats in session state
-                    if hasattr(st.session_state, 'threat_research_data') and st.session_state.threat_research_data:
-                        research_data = st.session_state.threat_research_data
-                        threat_name = st.session_state.get('researched_threat', 'Unknown Threat')
-                        
-                        if research_data.get("success") and research_data.get("research_format"):
-                            transcript += f"""## Threat Analysis: {threat_name}
-
-{research_data['research_format']}
-
----
-
-"""
-                        else:
-                            transcript += f"""## Threat Analysis: {threat_name}
-
-*Research data not available for this threat.*
-
----
-
-"""
-                    else:
-                        transcript += """## Threat Analysis
-
-*No threat research available. Please research a threat in the 'Threat Research' tab and try again.*
-
----
-
-"""
-                
-                # Outro
-                if include_outro:
-                    transcript += """## Closing Thoughts
-
-[Add your analysis and perspective on today's stories]
-
-## Wrap-Up
-
-That's a wrap on today's episode of The Lowdown. If you found this analysis valuable, please subscribe and share with others who need to stay informed on defense and security developments.
-
-For more detailed analysis and the latest updates, check out our newsletter at [WEBSITE]. 
-
-I'm [HOST NAME], thanks for listening, and we'll see you next time on The Lowdown.
-
----
-
-**Episode Notes:**
-- Total Runtime: [TIME]
-- Stories Covered: {len(st.session_state.transcript_data)}
-- Research Sources: Multiple defense publications and expert analysis
-"""
-                
-                # Display the generated transcript
-                st.subheader("📝 Generated Transcript")
-                st.text_area(
-                    "Full Podcast/YouTube Transcript",
-                    value=transcript,
-                    height=600,
-                    help="Copy this transcript for your podcast/YouTube production"
-                )
-                
-                # Action buttons
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    if st.button("📋 Copy Transcript"):
-                        st.toast("Transcript ready to copy! (Use Cmd+A, Cmd+C in the text area)", icon="📋")
-                
-                with col2:
-                    if st.button("💾 Save Draft"):
-                        # Could implement saving to database later
-                        st.toast("Draft saved to session!", icon="💾")
-                
-                with col3:
-                    if st.button("🔄 Clear All"):
-                        st.session_state.transcript_data = {}
-                        st.rerun()
-        
+            accepted_articles = [a for a in all_articles if a['status'] == 'accepted']
+            accepted_snapshots = [s for s in all_snapshots if s['status'] == 'accepted']
         else:
-            st.info("👆 Enhance some articles with context to start building your transcript.")
-            st.markdown("""
-            **💡 Transcript Builder Features:**
-            - 🔍 **Context Enhancement**: Uses Perplexity AI to add background and analysis
-            - 🎙️ **Podcast Structure**: Organized intro, stories, threat of the day, outro
-            - 📝 **Copy-Ready Format**: Formatted for easy podcast/YouTube production
-            - 🎯 **Conversational Tone**: Written for natural narration
-            """)
+            accepted_articles = []
+            accepted_snapshots = []
+    except requests.exceptions.RequestException:
+        accepted_articles = []
+        accepted_snapshots = []
+    
+    # Content overview
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📰 Articles", len(accepted_articles))
+    with col2:
+        st.metric("📸 Snapshots", len(accepted_snapshots))
+    with col3:
+        total_content = len(accepted_articles) + len(accepted_snapshots)
+        st.metric("📈 Total Content", total_content)
+    
+    if total_content == 0:
+        st.warning("⚠️ No accepted content found. Please accept some articles or snapshots first.")
+        st.info("""
+        **💡 How it works:**
+        1. Accept articles in the 'Article Curation' tab
+        2. Accept snapshots in the 'Snapshot' tab  
+        3. Come back here to generate a teleprompter script
+        4. AI will create a professional news-style script ready for recording
+        """)
+    else:
+        st.success(f"✅ Ready to generate script from {total_content} pieces of content")
+        
+        # Script configuration
+        st.subheader("⚙️ Script Configuration")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            include_intro = st.checkbox("🎤 Include Intro", value=True)
+            include_outro = st.checkbox("🎆 Include Outro", value=True)
+            
+        with col2:
+            host_name = st.text_input("🎤 Host Name", value="[HOST NAME]")
+            show_name = st.text_input("📺 Show Name", value="The Lowdown")
+        
+        style = st.selectbox(
+            "🎨 Script Style",
+            ["news", "conversational", "formal"],
+            index=0,
+            help="Choose the tone and style for your teleprompter script"
+        )
+        
+        # Generate script button
+        if st.button("🎤 Generate Teleprompter Script", type="primary"):
+            with st.spinner("🤖 AI is generating your teleprompter script..."):
+                try:
+                    # Call the Fork API
+                    response = requests.post(
+                        f"{API_URL}/generate-teleprompter",
+                        json={
+                            "include_intro": include_intro,
+                            "include_outro": include_outro,
+                            "host_name": host_name,
+                            "show_name": show_name,
+                            "style": style
+                        },
+                        timeout=120
+                    )
+                    
+                    if response.status_code == 200:
+                        script_data = response.json()
+                        
+                        if script_data["success"]:
+                            # Display script metrics
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("🔢 Word Count", script_data["word_count"])
+                            with col2:
+                                st.metric("⏱️ Est. Duration", script_data["estimated_duration"])
+                            with col3:
+                                st.metric("🎨 Style", style.title())
+                            
+                            # Display the generated script
+                            st.subheader("📜 Generated Teleprompter Script")
+                            st.text_area(
+                                "Copy to Teleprompter",
+                                value=script_data["script"],
+                                height=600,
+                                help="Click in the box and press Cmd+A then Cmd+C to copy the entire script"
+                            )
+                            st.caption("📋 Click in the box and press Cmd+A then Cmd+C to copy.")
+                            
+                            # Action buttons
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                if st.button("📋 Copy Script"):
+                                    st.toast("Script ready to copy! (Use Cmd+A, Cmd+C in the text area)", icon="📋")
+                            
+                            with col2:
+                                if st.button("💾 Download Script"):
+                                    st.toast("Download feature coming soon!", icon="💾")
+                            
+                            with col3:
+                                if st.button("🔄 Generate New"):
+                                    st.rerun()
+                            
+                            # Script tips
+                            st.info("""
+                            **🎤 Teleprompter Tips:**
+                            - **[PAUSE]** markers indicate natural breathing points
+                            - **Bold text** indicates emphasis for key points
+                            - Read at ~155 words per minute for natural delivery
+                            - Practice the script before recording for best results
+                            """)
+                            
+                        else:
+                            st.error(f"❌ Script generation failed: {script_data.get('error', 'Unknown error')}")
+                    else:
+                        st.error(f"❌ API request failed with status {response.status_code}")
+                        
+                except Exception as e:
+                    st.error(f"❌ Failed to generate script: {e}")
+        
+        # Content preview
+        if st.expander("🔍 Preview Content to be Scripted", expanded=False):
+            if accepted_articles:
+                st.markdown("**📰 Articles:**")
+                for i, article in enumerate(accepted_articles, 1):
+                    st.markdown(f"{i}. **{article['title']}** ({article['source']})")
+            
+            if accepted_snapshots:
+                st.markdown("**📸 Snapshots:**")
+                for i, snapshot in enumerate(accepted_snapshots, 1):
+                    if snapshot.get('highlight'):
+                        st.markdown(f"{i}. {snapshot['highlight'][:100]}...")
 
 with tab5:
     st.markdown("#### 🚀 Export Newsletter")
@@ -914,3 +837,87 @@ with tab5:
                 del st.session_state.researched_threat
             st.toast("Newsletter content archived!", icon="📦")
             st.rerun()
+        
+        # --- Snapshot Export Section ---
+        st.markdown("---")
+        st.subheader("📸 Snapshot Export")
+        
+        # Get accepted snapshots for export
+        try:
+            snapshots_response = requests.get(f"{API_URL}/snapshots")
+            if snapshots_response.status_code == 200:
+                all_snapshots = snapshots_response.json()
+                accepted_snapshots = [s for s in all_snapshots if s['status'] == 'accepted']
+            else:
+                accepted_snapshots = []
+        except requests.exceptions.RequestException:
+            accepted_snapshots = []
+        
+        if not accepted_snapshots:
+            st.info("No accepted snapshots to export. Accept some snapshots in the 'Snapshot' tab to include them in your newsletter.")
+        else:
+            st.markdown(f"**{len(accepted_snapshots)} accepted snapshot(s) ready for export:**")
+            
+            # Build the snapshot content for export
+            snapshot_content = ""
+            for snapshot in accepted_snapshots:
+                if snapshot.get('highlight'):
+                    snapshot_content += snapshot['highlight'] + "\n\n"
+            
+            if snapshot_content.strip():
+                st.text_area(
+                    "Copy Snapshots to Newsletter", 
+                    value=snapshot_content.strip(), 
+                    height=200,
+                    help="Click in the box and press Cmd+A then Cmd+C to copy all accepted snapshot highlights."
+                )
+                st.caption("📋 Click in the box and press Cmd+A then Cmd+C to copy.")
+                
+                # Archive button for accepted snapshots
+                if st.button("📦 Archive All Accepted Snapshots", type="secondary", key="export_archive_btn"):
+                    for snapshot in accepted_snapshots:
+                        try:
+                            response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "archived"})
+                            if response.status_code == 200:
+                                st.success(f"📦 Archived snapshot #{snapshot['id']}")
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"❌ Error archiving snapshot #{snapshot['id']}: {e}")
+                    st.toast("Snapshots archived!", icon="📦")
+                    st.rerun()
+            else:
+                st.warning("Accepted snapshots don't have highlights yet. Try re-highlighting them in the Snapshot tab.")
+        
+        # --- Threat Research Export Section ---
+        st.markdown("---")
+        st.subheader("🔍 Threat Research Export")
+        
+        # Check if threat research data is available
+        if hasattr(st.session_state, 'threat_research_data') and st.session_state.threat_research_data:
+            research_data = st.session_state.threat_research_data
+            threat_name = st.session_state.get('researched_threat', 'Unknown Threat')
+            
+            if research_data.get("success"):
+                st.markdown(f"**Current Threat Research:** {threat_name}")
+                
+                # Research content export (detailed version)
+                if research_data.get("research_content"):
+                    st.text_area(
+                        "Copy Threat Research to Newsletter", 
+                        value=research_data['research_content'], 
+                        height=300,
+                        help="Detailed threat research content with comprehensive analysis."
+                    )
+                    st.caption("📋 Click in the box and press Cmd+A then Cmd+C to copy.")
+                
+                # Clear threat research button
+                if st.button("🗑️ Clear Threat Research", type="secondary", key="export_clear_threat"):
+                    if hasattr(st.session_state, 'threat_research_data'):
+                        del st.session_state.threat_research_data
+                    if hasattr(st.session_state, 'researched_threat'):
+                        del st.session_state.researched_threat
+                    st.toast("Threat research cleared!", icon="🗑️")
+                    st.rerun()
+            else:
+                st.warning("Threat research data is available but contains errors. Please re-run the research in the Threat Research tab.")
+        else:
+            st.info("No threat research data available. Generate threat research in the 'Threat Research' tab to include it in your newsletter.")

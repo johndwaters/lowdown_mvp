@@ -65,6 +65,15 @@ def fetch_all_articles() -> List[Dict[str, Any]]:
     conn.close()
     return articles
 
+def get_articles_by_status(status: str):
+    """Fetches all articles with the specified status."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Articles WHERE status = ? ORDER BY position", (status,))
+    articles = cursor.fetchall()
+    conn.close()
+    return articles
+
 def add_article(url: str, title: str = "", source: str = "", summary: str = "", status: str = "pending", position: Optional[int] = None) -> Optional[Dict[str, Any]]:
     """
     Adds a new article. If an article with the same URL exists and is
@@ -234,6 +243,15 @@ def fetch_all_snapshots():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM Snapshots WHERE status != 'archived' ORDER BY position ASC, created_at DESC")
+    snapshots = cursor.fetchall()
+    conn.close()
+    return snapshots
+
+def get_snapshots_by_status(status: str):
+    """Fetches all snapshots with the specified status."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Snapshots WHERE status = ? ORDER BY position", (status,))
     snapshots = cursor.fetchall()
     conn.close()
     return snapshots

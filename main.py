@@ -681,6 +681,148 @@ def research_threat(request: ThreatResearchRequest):
             error=f"Server error: {str(e)}"
         )
 
+# Pydantic model for teleprompter script request
+class TeleprompterRequest(BaseModel):
+    include_intro: bool = True
+    include_outro: bool = True
+    host_name: str = "[HOST NAME]"
+    show_name: str = "The Lowdown"
+    style: str = "news"  # news, conversational, formal
+
+class TeleprompterResponse(BaseModel):
+    success: bool
+    script: str
+    word_count: int
+    estimated_duration: str
+    error: Optional[str] = None
+
+@app.post("/generate-teleprompter", response_model=TeleprompterResponse)
+def generate_teleprompter_script(request: TeleprompterRequest):
+    """
+    Generate a news-style teleprompter script from accepted articles and snapshots.
+    """
+    try:
+        print("--- Teleprompter script generation started ---")
+        
+        # Get accepted articles and snapshots
+        accepted_articles = db_handler.get_articles_by_status('accepted')
+        accepted_snapshots = db_handler.get_snapshots_by_status('accepted')
+        
+        if not accepted_articles and not accepted_snapshots:
+            return TeleprompterResponse(
+                success=False,
+                script="",
+                word_count=0,
+                estimated_duration="0:00",
+                error="No accepted articles or snapshots found. Please accept some content first."
+            )
+        
+        # Build content for AI processing
+        content_summary = ""
+        
+        # Add articles
+        if accepted_articles:
+            content_summary += "ARTICLES:\n"
+            for i, article in enumerate(accepted_articles, 1):
+                content_summary += f"{i}. {article['title']}\n"
+                if article.get('summary'):
+                    content_summary += f"   Summary: {article['summary']}\n"
+                content_summary += f"   Source: {article['source']}\n\n"
+        
+        # Add snapshots
+        if accepted_snapshots:
+            content_summary += "SNAPSHOTS:\n"
+            for i, snapshot in enumerate(accepted_snapshots, 1):
+                if snapshot.get('highlight'):
+                    content_summary += f"{i}. {snapshot['highlight']}\n"
+                content_summary += f"   URL: {snapshot['url']}\n\n"
+        
+        # Generate teleprompter script using OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return TeleprompterResponse(
+                success=False,
+                script="",
+                word_count=0,
+                estimated_duration="0:00",
+                error="OpenAI API key not configured"
+            )
+        
+        import openai
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Create teleprompter script prompt
+        script_prompt = f"""Create a professional news-style teleprompter script for '{request.show_name}' hosted by {request.host_name}.
+
+Style: {request.style}
+Include intro: {request.include_intro}
+Include outro: {request.include_outro}
+
+Content to cover:
+{content_summary}
+
+Requirements:
+1. Write in teleprompter format with clear pacing cues
+2. Use conversational, authoritative news delivery style
+3. Include smooth transitions between stories
+4. Add [PAUSE] markers for natural breathing
+5. Keep sentences concise for easy reading
+6. Include emphasis markers like **bold** for key points
+7. Maintain professional news tone throughout
+8. Structure: Intro → Stories → Snapshots → Outro
+
+Format the script for easy teleprompter reading with proper spacing and cues."""
+        
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a professional news script writer specializing in teleprompter scripts for defense and security news shows. Create clear, readable scripts with proper pacing and emphasis."},
+                    {"role": "user", "content": script_prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.7
+            )
+            
+            script = response.choices[0].message.content.strip()
+            
+            # Calculate word count and estimated duration
+            word_count = len(script.split())
+            # Average speaking rate: 150-160 words per minute for news
+            duration_minutes = word_count / 155
+            duration_seconds = int((duration_minutes % 1) * 60)
+            duration_str = f"{int(duration_minutes)}:{duration_seconds:02d}"
+            
+            print(f"--- Teleprompter script generated successfully: {word_count} words, ~{duration_str} ---")
+            
+            return TeleprompterResponse(
+                success=True,
+                script=script,
+                word_count=word_count,
+                estimated_duration=duration_str,
+                error=None
+            )
+            
+        except Exception as e:
+            print(f"OpenAI API error: {e}")
+            return TeleprompterResponse(
+                success=False,
+                script="",
+                word_count=0,
+                estimated_duration="0:00",
+                error=f"AI script generation failed: {str(e)}"
+            )
+            
+    except Exception as e:
+        print(f"ERROR: Teleprompter generation failed: {e}")
+        return TeleprompterResponse(
+            success=False,
+            script="",
+            word_count=0,
+            estimated_duration="0:00",
+            error=f"Server error: {str(e)}"
+        )
+
 # Server startup configuration for Railway deployment
 if __name__ == "__main__":
     import uvicorn
