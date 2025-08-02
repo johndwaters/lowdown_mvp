@@ -219,9 +219,22 @@ with tab1:
                             st.rerun()
                     
                     with st.expander("📝 Manual Content (Bypass Web Scraping)"):
-                        st.info("Use this if the website has a paywall or the scraper can't access the content. Paste the article text below and click 'Summarize Manual Content'.")
+                        # Check if article failed to scrape and show helpful message
+                        article_status = article.get('status', '')
+                        if 'failed' in article_status.lower() or 'scraping_failed' in article_status.lower():
+                            article_url = article.get('url', '')
+                            st.warning(f"⚠️ Scraping failed for this article. Click the link below to open it:")
+                            # Show clickable hyperlink with actual URL
+                            st.markdown(f"🔗 **[{article_url}]({article_url})**", unsafe_allow_html=True)
+                            # Pre-populate with the article URL if scraping failed
+                            default_content = f"Failed to scrape: {article_url}\n\nPaste the article content here..."
+                        else:
+                            st.info("Use this if the website has a paywall or the scraper can't access the content. Paste the article text below and click 'Summarize Manual Content'.")
+                            default_content = ""
+                        
                         manual_content = st.text_area(
                             "Article Content", 
+                            value=default_content,
                             placeholder="Paste the full article content here...", 
                             height=200, 
                             key=f"manual_content_{article['id']}"
@@ -377,8 +390,22 @@ with tab2:
                     
                     # Manual content option
                     with st.expander("✏️ Manual Content (Bypass Web Scraping)"):
+                        # Check if snapshot failed to scrape and show helpful message with clickable link
+                        snapshot_status = snapshot.get('status', '')
+                        if 'failed' in snapshot_status.lower() or 'scraping_failed' in str(snapshot.get('highlight', '')).lower():
+                            snapshot_url = snapshot.get('url', '')
+                            st.warning(f"⚠️ Scraping failed for this snapshot. Click the link below to open it:")
+                            # Show clickable hyperlink with actual URL
+                            st.markdown(f"🔗 **[{snapshot_url}]({snapshot_url})**", unsafe_allow_html=True)
+                            # Pre-populate with the snapshot URL if scraping failed
+                            default_content = f"Failed to scrape: {snapshot_url}\n\nPaste the article content here..."
+                        else:
+                            st.info("Use this if the website has a paywall or the scraper can't access the content.")
+                            default_content = ""
+                        
                         manual_content = st.text_area(
                             "Paste article content here:",
+                            value=default_content,
                             height=200,
                             key=f"manual_content_{snapshot['id']}",
                             placeholder="Paste the full article text here to bypass web scraping..."
