@@ -724,34 +724,178 @@ def archive_newsletter_issue(issue_id: int) -> bool:
     finally:
         conn.close()
 
-def fetch_full_newsletter_issue(issue_id: int) -> Optional[Dict[str, Any]]:
+def fetch_full_newsletter_issue(issue_id: int):
+    """Fetches a full newsletter issue with all linked articles and threats."""
     conn = get_db_connection()
     cursor = conn.cursor()
-
-    # Fetch the main issue details
-    cursor.execute("SELECT * FROM NewsletterIssues WHERE id = ?", (issue_id,))
-    issue = cursor.fetchone()
-    if not issue:
+    
+    try:
+        # Fetch the newsletter issue
+        cursor.execute("SELECT * FROM newsletter_issues WHERE id = ?", (issue_id,))
+        issue = cursor.fetchone()
+        
+        if not issue:
+            return None
+        
+        # Fetch linked articles
+        cursor.execute("""
+            SELECT a.* FROM articles a
+            JOIN newsletter_articles na ON a.id = na.article_id
+            WHERE na.newsletter_id = ?
+            ORDER BY na.id
+        """, (issue_id,))
+        articles = cursor.fetchall()
+        
+        # Fetch featured threat if exists
+        featured_threat = None
+        if issue.get('featured_threat_id'):
+            featured_threat = get_threat_by_id(issue['featured_threat_id'])
+        
+        # Fetch featured podcast if exists
+        featured_podcast = None
+        if issue.get('featured_podcast_id'):
+            featured_podcast = get_podcast_episode_by_id(issue['featured_podcast_id'])
+        
+        return {
+            **issue,
+            'articles': articles,
+            'featured_threat': featured_threat,
+            'featured_podcast': featured_podcast
+        }
+    finally:
         conn.close()
-        return None
 
-    # Fetch linked articles
-    cursor.execute("""
-        SELECT a.* FROM Articles a
-        JOIN NewsletterArticles na ON a.id = na.article_id
-        WHERE na.newsletter_id = ?
-    """, (issue_id,))
-    issue['articles'] = cursor.fetchall()
+# --- Position Update Functions for Drag-and-Drop ---
+def update_article_position(article_id: int, new_position: int) -> bool:
+    """Update the position of a specific article for drag-and-drop reordering."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # First, check if the article exists
+        cursor.execute("SELECT position FROM articles WHERE id = ? AND status != 'archived'", (article_id,))
+        current_article = cursor.fetchone()
+        
+        if not current_article:
+            return False
+        
+        current_position = current_article['position']
+        
+        # If the position hasn't changed, no need to update
+        if current_position == new_position:
+            return True
+        
+        # Get all non-archived articles ordered by position
+        cursor.execute("SELECT id, position FROM articles WHERE status != 'archived' ORDER BY position")
+        all_articles = cursor.fetchall()
+        
+        # Remove the current article from the list
+        other_articles = [a for a in all_articles if a['id'] != article_id]
+        
+        # Insert the article at the new position
+        other_articles.insert(new_position - 1, {'id': article_id, 'position': new_position})
+        
+        # Update all positions
+        for i, article in enumerate(other_articles, 1):
+            cursor.execute("UPDATE articles SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                         (i, article['id']))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Error updating article position: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
 
-    # Fetch featured threat
-    if issue.get('featured_threat_id'):
-        cursor.execute("SELECT * FROM Threats WHERE id = ?", (issue['featured_threat_id'],))
-        issue['featured_threat'] = _parse_threat_json_fields(cursor.fetchone())
+def update_snapshot_position(snapshot_id: int, new_position: int) -> bool:
+    """Update the position of a specific snapshot for drag-and-drop reordering."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # First, check if the snapshot exists
+        cursor.execute("SELECT position FROM snapshots WHERE id = ? AND status != 'archived'", (snapshot_id,))
+        current_snapshot = cursor.fetchone()
+        
+        if not current_snapshot:
+            return False
+        
+        current_position = current_snapshot['position']
+        
+        # If the position hasn't changed, no need to update
+        if current_position == new_position:
+            return True
+        
+        # Get all non-archived snapshots ordered by position
+        cursor.execute("SELECT id, position FROM snapshots WHERE status != 'archived' ORDER BY position")
+        all_snapshots = cursor.fetchall()
+        
+        # Remove the current snapshot from the list
+        other_snapshots = [s for s in all_snapshots if s['id'] != snapshot_id]
+        
+        # Insert the snapshot at the new position
+        other_snapshots.insert(new_position - 1, {'id': snapshot_id, 'position': new_position})
+        
+        # Update all positions
+        for i, snapshot in enumerate(other_snapshots, 1):
+            cursor.execute("UPDATE snapshots SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                         (i, snapshot['id']))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Error updating snapshot position: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
 
-    # Fetch featured podcast
-    if issue.get('featured_podcast_id'):
-        cursor.execute("SELECT * FROM PodcastEpisodes WHERE id = ?", (issue['featured_podcast_id'],))
-        issue['featured_podcast'] = cursor.fetchone()
+def bulk_update_article_positions(updates: List[Dict[str, int]]) -> bool:
+    """Bulk update article positions for efficient drag-and-drop reordering."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Update all positions in a single transaction
+        for update in updates:
+            article_id = update['id']
+            new_position = update['position']
+            cursor.execute("UPDATE articles SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                         (new_position, article_id))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Error bulk updating article positions: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
 
-    conn.close()
-    return issue
+def bulk_update_snapshot_positions(updates: List[Dict[str, int]]) -> bool:
+    """Bulk update snapshot positions for efficient drag-and-drop reordering."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Update all positions in a single transaction
+        for update in updates:
+            snapshot_id = update['id']
+            new_position = update['position']
+            cursor.execute("UPDATE snapshots SET position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                         (new_position, snapshot_id))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Error bulk updating snapshot positions: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()

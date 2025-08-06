@@ -4,6 +4,9 @@ import requests
 from database import db_handler
 import json
 from pathlib import Path
+from crm_components import render_crm_article_list, render_crm_snapshot_list
+from compact_article_view import render_compact_article_list
+from apple_article_view import render_apple_article_view
 
 # --- Page Config ---
 st.set_page_config(page_title="The Lowdown Admin", layout="wide")
@@ -130,6 +133,94 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Sidebar removed - Article Order moved to bottom of page
+
+# Compact Import Section - Apple UI Principles (reduced white space)
+col_import, col_admin = st.columns([2, 3])  # Horizontal layout to save vertical space
+
+with col_import:
+    st.markdown("**📥 Import Articles**")  # Smaller header
+    with st.form("add_articles_form"):
+        urls_to_add = st.text_area(
+            "URLs", 
+            height=68,  # Minimum required height
+            placeholder="Paste URLs, one per line...",
+            label_visibility="collapsed"
+        )
+        submit_button = st.form_submit_button(
+            "🚀 Import", 
+            use_container_width=True,
+            type="primary"
+        )
+    
+    # Handle form submission
+    if submit_button:
+        urls = [url.strip() for url in urls_to_add.splitlines() if url.strip()]
+        if urls:
+            success_count = 0
+            with st.spinner(f"Importing {len(urls)} articles..."):
+                for url in urls:
+                    try:
+                        response = requests.post(f"{API_URL}/articles", json={"url": url, "title": url, "source": "manual_add"})
+                        response.raise_for_status()
+                        success_count += 1
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code == 409:
+                            st.toast(f"Article already exists: {url.split('/')[-1][:30]}...", icon="⚠️")
+                        else:
+                            st.error(f"Failed to add {url}: {e}")
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"Failed to add {url}: {e}")
+            
+            if success_count > 0:
+                st.toast(f"✅ Successfully imported {success_count} article(s)!", icon="✅")
+                st.rerun()
+        else:
+            st.warning("Please enter at least one URL")
+
+with col_admin:
+    st.markdown("**⚙️ Admin Controls**")  # Moved from below
+    col_admin1, col_admin2, col_admin3 = st.columns(3)
+    
+    with col_admin1:
+            if st.button("🗃️ Archive", help="Archive all accepted articles", use_container_width=True):
+                accepted_articles = [a for a in fetch_articles_from_api() if a.get('status') == 'accepted']
+                
+                if accepted_articles:
+                    success_count = 0
+                    for article in accepted_articles:
+                        try:
+                            response = requests.patch(f"{API_URL}/articles/{article['id']}", 
+                                                    json={"status": "archived"})
+                            if response.status_code == 200:
+                                success_count += 1
+                        except Exception as e:
+                            st.error(f"Failed to archive article {article['id']}: {e}")
+                    
+                    if success_count > 0:
+                        st.toast(f"✅ Successfully archived {success_count} article(s)!", icon="✅")
+                        st.rerun()
+                else:
+                    st.info("No accepted articles to archive")
+    
+    with col_admin2:
+        if st.button("🔄 Summarize", help="Summarize all pending articles", use_container_width=True):
+            try:
+                response = requests.post(f"{API_URL}/batch-summarize")
+                if response.status_code == 200:
+                    st.toast("✅ Batch summarization started!", icon="✅")
+                    st.rerun()
+                else:
+                    st.error("Failed to start batch summarization")
+            except Exception as e:
+                st.error(f"Error: {e}")
+    
+    with col_admin3:
+        if st.button("📊 Refresh", help="Refresh article data", use_container_width=True):
+            st.rerun()
+    
+# Article Order section moved to bottom of page
+
 # --- Session State Initialization ---
 # (Threat research data will be stored in session state as needed)
 
@@ -137,359 +228,188 @@ st.markdown("""
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📝 Article Curation", "📸 Snapshot", "🔍 Threat Research", "📝 Transcript", "🚀 Export"])
 
 with tab1:
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        st.subheader("📥 Input")
-        with st.form("add_articles_form"):
-            urls_to_add = st.text_area("Article URLs", height=150, placeholder="Paste one or more URLs, one per line...")
-            if st.form_submit_button("Import Articles"):
-                urls = [url.strip() for url in urls_to_add.splitlines() if url.strip()]
-                if urls:
-                    success_count = 0
-                    for url in urls:
+    # Modern CRM-style Article Curation Interface
+    st.markdown("<div class='military-header'>🎯 ARTICLE CURATION COMMAND CENTER</div>", unsafe_allow_html=True)
+    
+    # Compact Pipeline Metrics Dashboard
+    articles = fetch_articles_from_api()
+    total_articles = len(articles)
+    pending_count = len([a for a in articles if a['status'] == 'pending'])
+    summarized_count = len([a for a in articles if a['status'] == 'summarized'])
+    accepted_count = len([a for a in articles if a['status'] == 'accepted'])
+    
+    # Compact horizontal metrics bar
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #4A5D23, #3A4A1C);
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 500;
+    ">
+        <span>📊 <strong>Pipeline:</strong></span>
+        <span>{total_articles} Total</span>
+        <span style="color: #FFB84D;">{pending_count} Pending</span>
+        <span style="color: #87CEEB;">{summarized_count} Summarized</span>
+        <span style="color: #90EE90;">{accepted_count} Accepted</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Apple-Inspired Article Management Interface (Full Width)
+    articles = fetch_articles_from_api()
+    render_apple_article_view(articles, API_URL)
+    
+    # Article Order Section - At Bottom
+    st.markdown("---")
+    st.markdown("### 📋 Article Order")
+    
+    summarized_articles = [a for a in articles if a['status'] in ['summarized', 'accepted']]
+    
+    if summarized_articles:
+        st.markdown(f"**{len(summarized_articles)} articles ready for export**")
+        
+        # Sort by position for display
+        sorted_articles = sorted(summarized_articles, key=lambda x: x.get('position', 999))
+        
+        # Enhanced article order display with grouped controls (Apple UI principles)
+        for i, article in enumerate(sorted_articles[:10]):  # Show top 10
+            col_controls, col_content = st.columns([0.8, 9.2])  # Controls grouped on left
+            
+            with col_controls:
+                # Group up/down arrows together as a single control unit
+                subcol1, subcol2 = st.columns(2)
+                with subcol1:
+                    if i > 0 and st.button("↑", key=f"bottom_up_{article['id']}", help="Move Up"):
                         try:
-                            # Pass the URL as the default title, as the backend requires it.
-                            response = requests.post(f"{API_URL}/articles", json={"url": url, "title": url, "source": "manual_add"})
-                            response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-                            success_count += 1
-                        except requests.exceptions.HTTPError as e:
-                            if e.response.status_code == 409:
-                                st.toast(f"Article already in list: {url.split('/')[-2][:30]}...", icon="⚠️")
-                            else:
-                                st.error(f"Failed to add {url}: {e}")
-                        except requests.exceptions.RequestException as e:
-                            st.error(f"Failed to add {url}: {e}")
-                    
-                    if success_count > 0:
-                        st.toast(f"Successfully imported {success_count} article(s).", icon="✅")
-                        st.rerun()
-
+                            current_position = article.get('position', i + 1)
+                            new_position = current_position - 1
+                            response = requests.patch(f"{API_URL}/articles/{article['id']}/position", 
+                                                    json={"item_id": article['id'], "new_position": new_position})
+                            if response.status_code == 200:
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with subcol2:
+                    if i < len(sorted_articles) - 1 and st.button("↓", key=f"bottom_down_{article['id']}", help="Move Down"):
+                        try:
+                            current_position = article.get('position', i + 1)
+                            new_position = current_position + 1
+                            response = requests.patch(f"{API_URL}/articles/{article['id']}/position", 
+                                                    json={"item_id": article['id'], "new_position": new_position})
+                            if response.status_code == 200:
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+            
+            with col_content:
+                # Show much more text for better understanding
+                title = article.get('title', 'Untitled')
+                summary = article.get('summary', '')
+                status_badge = "🟢" if article['status'] == 'accepted' else "🟠"
+                
+                # Display full title and summary snippet
+                if len(title) > 100:
+                    display_title = title[:100] + "..."
                 else:
-                    st.warning("Please enter at least one URL.")
-
-        st.subheader("🤖 Actions")
-        if st.button("Summarize All Pending Articles"):
-            pending_articles = [a for a in fetch_articles_from_api() if a['status'] == 'pending']
-            if not pending_articles:
-                st.toast("No pending articles to summarize.", icon="👍")
-            else:
-                progress_bar = st.progress(0, text="Summarizing...")
-                for i, article in enumerate(pending_articles):
-                    try:
-                        requests.post(f"{API_URL}/summarize", json={"article_id": article['id']})
-                    except Exception as e:
-                        db_handler.update_article(article['id'], status='summarization_failed')
-                    progress_bar.progress((i + 1) / len(pending_articles), text=f"Summarized {i+1}/{len(pending_articles)}")
-                st.success("Summarization complete!")
-                st.rerun()
-
-    with col2:
-        st.subheader("📄 Articles")
-        articles = fetch_articles_from_api()
-        if not articles:
-            st.info("No articles in the database. Add some using the form on the left.")
-        else:
-            for i, article in enumerate(articles):
-                with st.container(border=True):
-                    c1, c2 = st.columns([5, 1])
-                    with c1:
-                        st.caption(f"#{article.get('position', i+1)} | Status: {article.get('status', 'N/A')} | Source: {article.get('source', 'N/A')}")
-
-                    with c2:
-                        # --- Reordering Buttons ---
-                        sub_c1, sub_c2 = st.columns(2)
-                        with sub_c1:
-                            st.button("⬆️", key=f"up_{article['id']}", on_click=move_article, args=(article['id'], 'up'), help="Move Up")
-                        with sub_c2:
-                            st.button("⬇️", key=f"down_{article['id']}", on_click=move_article, args=(article['id'], 'down'), help="Move Down")
-
-                    # Display the summary, with a fallback message if it's empty
-                    summary_display = (article.get('summary') or '').strip()
-                    if summary_display:
-                        st.markdown(summary_display)
-                    else:
-                        st.info("This article has not been summarized yet.")
-
-                    with st.expander("Edit Summary"):
-                        summary_text = st.text_area("Summary Editor", value=article.get('summary', ''), height=150, key=f"summary_{article['id']}")
-                        if st.button("Save Summary", key=f"save_{article['id']}"):
-                            db_handler.update_article(article['id'], summary=summary_text)
-                            st.toast("Summary saved!", icon="✅")
-                            st.rerun()
-                    
-                    with st.expander("📝 Manual Content (Bypass Web Scraping)"):
-                        # Check if article failed to scrape and show helpful message
-                        article_status = article.get('status', '')
-                        if 'failed' in article_status.lower() or 'scraping_failed' in article_status.lower():
-                            article_url = article.get('url', '')
-                            st.warning(f"⚠️ Scraping failed for this article. Click the link below to open it:")
-                            # Show clickable hyperlink with actual URL
-                            st.markdown(f"🔗 **[{article_url}]({article_url})**", unsafe_allow_html=True)
-                            # Pre-populate with the article URL if scraping failed
-                            default_content = f"Failed to scrape: {article_url}\n\nPaste the article content here..."
-                        else:
-                            st.info("Use this if the website has a paywall or the scraper can't access the content. Paste the article text below and click 'Summarize Manual Content'.")
-                            default_content = ""
-                        
-                        manual_content = st.text_area(
-                            "Article Content", 
-                            value=default_content,
-                            placeholder="Paste the full article content here...", 
-                            height=200, 
-                            key=f"manual_content_{article['id']}"
-                        )
-                        if st.button("🤖 Summarize Manual Content", key=f"manual_sum_{article['id']}"):
-                            if manual_content.strip():
-                                try:
-                                    response = requests.post(f"{API_URL}/summarize-manual", json={
-                                        "article_id": article['id'],
-                                        "manual_content": manual_content
-                                    })
-                                    response.raise_for_status()
-                                    st.toast("Manual summarization completed!", icon="✅")
-                                    st.rerun()
-                                except requests.exceptions.RequestException as e:
-                                    st.error(f"Failed to summarize manual content: {e}")
-                            else:
-                                st.warning("Please paste some article content first.")
-
-                    # --- Action Buttons ---
-                    btn_cols = st.columns(4)
-                    if btn_cols[0].button("Re-summarize", key=f"resum_{article['id']}"):
-                        requests.post(f"{API_URL}/summarize", json={"article_id": article['id']})
-                        st.toast("Re-summarization started.")
-                        st.rerun()
-                    
-                    current_status = article.get('status')
-                    if current_status != 'accepted':
-                        if btn_cols[1].button("✅ Accept", key=f"accept_{article['id']}"):
-                            try:
-                                response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "accepted"})
-                                response.raise_for_status()
-                                st.toast("Article accepted!", icon="✅")
-                                st.rerun()
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"Failed to accept article: {e}")
-                    else:
-                        if btn_cols[1].button("↩️ Un-accept", key=f"unaccept_{article['id']}"):
-                            try:
-                                response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "summarized"})
-                                response.raise_for_status()
-                                st.toast("Article un-accepted!", icon="↩️")
-                                st.rerun()
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"Failed to un-accept article: {e}")
-
-                    if btn_cols[2].button("Archive", key=f"archive_{article['id']}"):
-                        try:
-                            response = requests.patch(f"{API_URL}/articles/{article['id']}", json={"status": "archived"})
-                            response.raise_for_status()
-                            st.toast("Article archived!", icon="📦")
-                            st.rerun()
-                        except requests.exceptions.RequestException as e:
-                            st.error(f"Failed to archive article: {e}")
-                    
-                    if btn_cols[3].button("🗑️ Delete", key=f"delete_{article['id']}"):
-                        try:
-                            response = requests.delete(f"{API_URL}/articles/{article['id']}")
-                            response.raise_for_status() # Raise an exception for bad status codes
-                            st.toast(f"Article deleted.", icon="🗑️")
-                            st.rerun()
-                        except requests.exceptions.RequestException as e:
-                            st.error(f"Failed to delete article: {e}")
+                    display_title = title
+                
+                st.markdown(f"**{i+1}.** {status_badge} **{display_title}**")
+                
+                # Show summary preview if available
+                if summary:
+                    summary_preview = summary[:150] + "..." if len(summary) > 150 else summary
+                    st.markdown(f"<small style='color: #666; line-height: 1.3;'>{summary_preview}</small>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<small style='color: #999; font-style: italic;'>No summary available</small>", unsafe_allow_html=True)
+        
+        if len(sorted_articles) > 10:
+            st.caption(f"... and {len(sorted_articles) - 10} more articles")
+        
+        # Export button
+        if st.button("🚀 Export Newsletter", key="bottom_export", help="Export in current order", type="primary"):
+            # Switch to export tab
+            st.session_state.active_tab = "Export"
+            st.rerun()
+            
+    else:
+        st.info("📝 Summarized articles will appear here for ordering. Use ↑↓ to reorder, then export.")
 
 with tab2:
-    st.markdown("#### 📸 Snapshot Section")
+    # Modern CRM-style Snapshot Interface
+    st.markdown("<div class='military-header'>📸 SNAPSHOT COMMAND CENTER</div>", unsafe_allow_html=True)
     st.markdown("Create concise 1-sentence highlights for quick scanning. Perfect for rapid news consumption.")
     
     def fetch_snapshots_from_api():
         """Fetch snapshots from the backend API"""
         try:
             response = requests.get(f"{API_URL}/snapshots")
-            if response.status_code == 200:
-                return response.json()
-            else:
-                st.error(f"Failed to fetch snapshots: {response.status_code}")
-                return []
+            response.raise_for_status()
+            return response.json()
         except requests.exceptions.RequestException as e:
-            st.error(f"Error connecting to API: {e}")
+            st.error(f"Failed to fetch snapshots: {e}")
             return []
     
-    col1, col2 = st.columns([1, 2])
+    # Input section in sidebar-style layout
+    col1, col2 = st.columns([1, 3])
 
     with col1:
-        st.subheader("📥 Input")
+        st.markdown("### 📥 Import Control")
         with st.form("add_snapshots_form"):
-            urls_to_add = st.text_area("Article URLs", height=150, placeholder="Paste one or more URLs, one per line...")
-            submit_button = st.form_submit_button("Import Snapshots", type="primary")
-            
-            if submit_button and urls_to_add.strip():
-                urls = [url.strip() for url in urls_to_add.split('\n') if url.strip()]
-                for url in urls:
-                    try:
-                        response = requests.post(f"{API_URL}/snapshots", json={"url": url})
-                        if response.status_code == 200:
-                            st.success(f"✅ Added: {url}")
-                        else:
-                            st.warning(f"⚠️ Failed to add: {url}")
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error adding {url}: {e}")
-                st.rerun()
+            urls_to_add = st.text_area(
+                "Snapshot URLs", 
+                height=150, 
+                placeholder="Paste one or more URLs, one per line...",
+                help="Import multiple snapshots by pasting URLs, one per line"
+            )
+            if st.form_submit_button("🚀 Import Snapshots", use_container_width=True):
+                urls = [url.strip() for url in urls_to_add.splitlines() if url.strip()]
+                if urls:
+                    success_count = 0
+                    with st.spinner(f"Importing {len(urls)} snapshots..."):
+                        for url in urls:
+                            try:
+                                response = requests.post(f"{API_URL}/snapshots", json={"url": url, "source": "manual_add"})
+                                response.raise_for_status()
+                                success_count += 1
+                            except requests.exceptions.HTTPError as e:
+                                if e.response.status_code == 409:
+                                    st.toast(f"Snapshot already exists: {url.split('/')[-1][:30]}...", icon="⚠️")
+                                else:
+                                    st.error(f"Failed to add {url}: {e}")
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"Failed to add {url}: {e}")
+                    
+                    if success_count > 0:
+                        st.toast(f"✅ Successfully imported {success_count} snapshot(s)!", icon="✅")
+                        st.rerun()
+                else:
+                    st.warning("Please enter at least one URL.")
         
-        st.subheader("⚙️ Actions")
-        if st.button("Highlight All Pending Snapshots", type="secondary"):
-            snapshots = fetch_snapshots_from_api()
-            pending_snapshots = [s for s in snapshots if s['status'] == 'pending']
-            
-            if pending_snapshots:
-                progress_bar = st.progress(0)
+        st.markdown("### 🤖 Batch Operations")
+        if st.button("🚀 Highlight All Pending", use_container_width=True):
+            pending_snapshots = [s for s in fetch_snapshots_from_api() if s['status'] == 'pending']
+            if not pending_snapshots:
+                st.toast("No pending snapshots to highlight.", icon="👍")
+            else:
+                progress_bar = st.progress(0, text="Processing snapshots...")
                 for i, snapshot in enumerate(pending_snapshots):
                     try:
-                        response = requests.post(f"{API_URL}/highlight", json={"snapshot_id": snapshot['id']})
-                        if response.status_code == 200:
-                            st.success(f"✅ Highlighted: {snapshot.get('title', snapshot['url'])}")
-                        else:
-                            st.error(f"❌ Failed to highlight: {snapshot.get('title', snapshot['url'])}")
-                    except requests.exceptions.RequestException as e:
-                        st.error(f"❌ Error highlighting: {e}")
-                    progress_bar.progress((i + 1) / len(pending_snapshots))
+                        requests.post(f"{API_URL}/highlight", json={"snapshot_id": snapshot['id']})
+                    except Exception as e:
+                        # Update status to failed if highlighting fails
+                        pass
+                    progress_bar.progress((i + 1) / len(pending_snapshots), text=f"Processed {i+1}/{len(pending_snapshots)}")
+                st.success("✅ Batch highlighting complete!")
                 st.rerun()
-            else:
-                st.info("No pending snapshots to highlight.")
 
     with col2:
-        st.subheader("📸 Snapshots")
+        # CRM-style snapshot list
         snapshots = fetch_snapshots_from_api()
-        
-        if not snapshots:
-            st.info("No snapshots found. Add some URLs to get started!")
-        else:
-            for snapshot in snapshots:
-                # Status emoji mapping
-                status_emojis = {
-                    'pending': '⏳',
-                    'highlighted': '✨', 
-                    'accepted': '✅',
-                    'archived': '📦'
-                }
-                
-                status_emoji = status_emojis.get(snapshot['status'], '❓')
-                
-                with st.expander(f"{status_emoji} #{snapshot['id']} | Status: {snapshot['status']} | Source: {snapshot.get('source', 'manual_add')}"):
-                    
-                    # Show scraping error if exists
-                    if snapshot['status'] == 'pending':
-                        if 'scraping_failed' in str(snapshot.get('highlight', '')):
-                            st.error("Scraping error: 400: Failed to fetch or parse article content: No content found.")
-                    
-                    # Show highlight if available
-                    if snapshot.get('highlight'):
-                        st.markdown("**Highlight:**")
-                        st.markdown(snapshot['highlight'])
-                    
-                    # Manual content option
-                    with st.expander("✏️ Manual Content (Bypass Web Scraping)"):
-                        # Check if snapshot failed to scrape and show helpful message with clickable link
-                        snapshot_status = snapshot.get('status', '')
-                        if 'failed' in snapshot_status.lower() or 'scraping_failed' in str(snapshot.get('highlight', '')).lower():
-                            snapshot_url = snapshot.get('url', '')
-                            st.warning(f"⚠️ Scraping failed for this snapshot. Click the link below to open it:")
-                            # Show clickable hyperlink with actual URL
-                            st.markdown(f"🔗 **[{snapshot_url}]({snapshot_url})**", unsafe_allow_html=True)
-                            # Pre-populate with the snapshot URL if scraping failed
-                            default_content = f"Failed to scrape: {snapshot_url}\n\nPaste the article content here..."
-                        else:
-                            st.info("Use this if the website has a paywall or the scraper can't access the content.")
-                            default_content = ""
-                        
-                        manual_content = st.text_area(
-                            "Paste article content here:",
-                            value=default_content,
-                            height=200,
-                            key=f"manual_content_{snapshot['id']}",
-                            placeholder="Paste the full article text here to bypass web scraping..."
-                        )
-                        
-                        if st.button("Generate Highlight from Manual Content", key=f"manual_highlight_{snapshot['id']}"):
-                            if manual_content.strip():
-                                try:
-                                    response = requests.post(
-                                        f"{API_URL}/highlight-manual",
-                                        json={"snapshot_id": snapshot['id'], "manual_content": manual_content}
-                                    )
-                                    if response.status_code == 200:
-                                        st.success("✅ Highlight generated successfully!")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ Failed to generate highlight: {response.status_code}")
-                                except requests.exceptions.RequestException as e:
-                                    st.error(f"❌ Error: {e}")
-                            else:
-                                st.warning("Please paste some content first.")
-                    
-                    # Action buttons
-                    col_a, col_b, col_c, col_d = st.columns(4)
-                    
-                    with col_a:
-                        if st.button("Re-highlight", key=f"rehighlight_{snapshot['id']}"):
-                            try:
-                                response = requests.post(f"{API_URL}/highlight", json={"snapshot_id": snapshot['id']})
-                                if response.status_code == 200:
-                                    st.success("✅ Re-highlighted!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Failed: {response.status_code}")
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"❌ Error: {e}")
-                    
-                    with col_b:
-                        if snapshot['status'] != 'accepted':
-                            if st.button("✅ Accept", key=f"accept_{snapshot['id']}"):
-                                try:
-                                    response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "accepted"})
-                                    if response.status_code == 200:
-                                        st.success("✅ Accepted!")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ Failed: {response.status_code}")
-                                except requests.exceptions.RequestException as e:
-                                    st.error(f"❌ Error: {e}")
-                        else:
-                            if st.button("↩️ Un-accept", key=f"unaccept_{snapshot['id']}"):
-                                try:
-                                    response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "highlighted"})
-                                    if response.status_code == 200:
-                                        st.success("↩️ Un-accepted!")
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ Failed: {response.status_code}")
-                                except requests.exceptions.RequestException as e:
-                                    st.error(f"❌ Error: {e}")
-                    
-                    with col_c:
-                        if st.button("Archive", key=f"archive_{snapshot['id']}"):
-                            try:
-                                response = requests.patch(f"{API_URL}/snapshots/{snapshot['id']}", json={"status": "archived"})
-                                if response.status_code == 200:
-                                    st.success("📦 Archived!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Failed: {response.status_code}")
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"❌ Error: {e}")
-                    
-                    with col_d:
-                        if st.button("🗑️ Delete", key=f"delete_{snapshot['id']}"):
-                            try:
-                                response = requests.delete(f"{API_URL}/snapshots/{snapshot['id']}")
-                                if response.status_code == 204:
-                                    st.success("🗑️ Deleted!")
-                                    st.rerun()
-                                else:
-                                    st.error(f"❌ Failed: {response.status_code}")
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"❌ Error: {e}")
+        render_crm_snapshot_list(snapshots, API_URL)
         
         # --- Snapshot Export Section ---
         st.markdown("---")

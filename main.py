@@ -44,6 +44,7 @@ class Article(BaseModel):
     source: Optional[str] = None
     summary: Optional[str] = None
     status: str
+    position: Optional[int] = None
     original_content: Optional[str] = None
     created_at: str
     updated_at: str
@@ -128,6 +129,7 @@ class Snapshot(BaseModel):
     source: Optional[str] = None
     highlight: Optional[str] = None
     status: str
+    position: Optional[int] = None
     original_content: Optional[str] = None
     created_at: str
     updated_at: str
@@ -695,6 +697,73 @@ class TeleprompterResponse(BaseModel):
     word_count: int
     estimated_duration: str
     error: Optional[str] = None
+
+# Position update models for drag-and-drop
+class PositionUpdateRequest(BaseModel):
+    item_id: int
+    new_position: int
+
+class BulkPositionUpdateRequest(BaseModel):
+    updates: List[Dict[str, int]]  # List of {"id": item_id, "position": new_position}
+
+# --- Position Update Endpoints for Drag-and-Drop ---
+@app.patch("/articles/{article_id}/position")
+def update_article_position(article_id: int, request: PositionUpdateRequest):
+    """
+    Update the position of a specific article for drag-and-drop reordering.
+    """
+    try:
+        # Update the article position in the database
+        success = db_handler.update_article_position(article_id, request.new_position)
+        if success:
+            return {"success": True, "message": f"Article {article_id} moved to position {request.new_position}"}
+        else:
+            raise HTTPException(status_code=404, detail="Article not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update position: {str(e)}")
+
+@app.patch("/snapshots/{snapshot_id}/position")
+def update_snapshot_position(snapshot_id: int, request: PositionUpdateRequest):
+    """
+    Update the position of a specific snapshot for drag-and-drop reordering.
+    """
+    try:
+        # Update the snapshot position in the database
+        success = db_handler.update_snapshot_position(snapshot_id, request.new_position)
+        if success:
+            return {"success": True, "message": f"Snapshot {snapshot_id} moved to position {request.new_position}"}
+        else:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update position: {str(e)}")
+
+@app.post("/articles/reorder")
+def bulk_reorder_articles(request: BulkPositionUpdateRequest):
+    """
+    Bulk update article positions for efficient drag-and-drop reordering.
+    """
+    try:
+        success = db_handler.bulk_update_article_positions(request.updates)
+        if success:
+            return {"success": True, "message": f"Reordered {len(request.updates)} articles"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to reorder articles")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reorder articles: {str(e)}")
+
+@app.post("/snapshots/reorder")
+def bulk_reorder_snapshots(request: BulkPositionUpdateRequest):
+    """
+    Bulk update snapshot positions for efficient drag-and-drop reordering.
+    """
+    try:
+        success = db_handler.bulk_update_snapshot_positions(request.updates)
+        if success:
+            return {"success": True, "message": f"Reordered {len(request.updates)} snapshots"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to reorder snapshots")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reorder snapshots: {str(e)}")
 
 @app.post("/generate-teleprompter", response_model=TeleprompterResponse)
 def generate_teleprompter_script(request: TeleprompterRequest):

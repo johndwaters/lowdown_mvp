@@ -1,63 +1,90 @@
-/* The Lowdown - Grok-Inspired Military Theme */
-/* OD Green Camouflage Color Palette */
+/* The Lowdown - Grok-Inspired Clean Theme */
+/* Clean white background with strategic OD green accents */
 
 :root {
     --od-green-primary: #4A5D23;
     --od-green-dark: #3A4A1C;
     --od-green-light: #5A6D33;
-    --military-bg: #0F1419;
-    --panel-bg: #1A2332;
-    --text-primary: #E8E8E8;
-    --text-secondary: #B8C5D1;
-    --accent-orange: #FF6B35;
+    --od-green-accent: #6B7D43;
+    --clean-white: #FFFFFF;
+    --clean-bg: #FAFAFA;
+    --panel-bg: #FFFFFF;
+    --text-primary: #1A1A1A;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --border-light: #E5E5E5;
+    --border-medium: #CCCCCC;
+    --accent-blue: #0066CC;
     --warning-red: #DC3545;
     --success-green: #28A745;
 }
 
-/* Main App Styling */
+/* Main App Styling - Clean White Background */
 .stApp {
-    background: linear-gradient(135deg, var(--military-bg) 0%, #1A2332 100%);
+    background: var(--clean-bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Header and Title Styling - Clean Grok Style */
+.main-header {
+    background: var(--clean-white);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-light);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     color: var(--text-primary);
 }
 
-/* Header and Title Styling */
-.main-header {
-    background: linear-gradient(90deg, var(--od-green-dark), var(--od-green-primary));
-    padding: 1rem;
-    border-radius: 8px;
-    margin-bottom: 2rem;
-    border: 2px solid var(--od-green-light);
-}
-
-/* Button Styling - Military Theme */
+/* Button Styling - Beautiful OD Green Gradients */
 .stButton > button {
     background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
-    color: var(--text-primary) !important;
-    border: 2px solid var(--od-green-light) !important;
-    border-radius: 6px !important;
-    font-weight: bold !important;
-    font-family: 'Courier New', monospace !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    transition: all 0.3s ease !important;
+    color: var(--clean-white) !important;
+    border: 1px solid var(--od-green-light) !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 6px rgba(74, 93, 35, 0.3) !important;
 }
 
 .stButton > button:hover {
     background: linear-gradient(135deg, var(--od-green-light), var(--od-green-primary)) !important;
-    border-color: var(--accent-orange) !important;
+    border-color: var(--od-green-accent) !important;
     box-shadow: 0 4px 8px rgba(74, 93, 35, 0.4) !important;
-    transform: translateY(-2px) !important;
+    transform: translateY(-1px) !important;
 }
 
-/* Primary Button Styling */
+/* OD Green Accent Buttons - Gradient Style */
+.stButton > button[data-testid*="primary"] {
+    background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
+    color: var(--clean-white) !important;
+    border: 1px solid var(--od-green-light) !important;
+    box-shadow: 0 2px 6px rgba(74, 93, 35, 0.3) !important;
+}
+
+.stButton > button[data-testid*="primary"]:hover {
+    background: linear-gradient(135deg, var(--od-green-light), var(--od-green-primary)) !important;
+    border-color: var(--od-green-accent) !important;
+    box-shadow: 0 4px 8px rgba(74, 93, 35, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Primary Button Styling - OD Green Gradient */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, var(--accent-orange), #E55A2B) !important;
-    border-color: var(--accent-orange) !important;
+    background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
+    color: var(--clean-white) !important;
+    border: 1px solid var(--od-green-light) !important;
+    box-shadow: 0 2px 6px rgba(74, 93, 35, 0.3) !important;
 }
 
 .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #FF7B45, var(--accent-orange)) !important;
-    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4) !important;
+    background: linear-gradient(135deg, var(--od-green-light), var(--od-green-primary)) !important;
+    border-color: var(--od-green-accent) !important;
+    box-shadow: 0 4px 8px rgba(74, 93, 35, 0.4) !important;
+    transform: translateY(-1px) !important;
 }
 
 /* Secondary Button Styling */
@@ -66,38 +93,46 @@
     border-color: var(--od-green-primary) !important;
 }
 
-/* Tab Styling - Military Theme */
+/* Tab Styling - Clean Grok Theme */
 .stTabs [data-baseweb="tab-list"] {
-    background: var(--panel-bg);
-    border-radius: 8px;
+    background: var(--clean-white);
+    border-radius: 12px;
     padding: 0.5rem;
-    border: 2px solid var(--od-green-primary);
+    border: 1px solid var(--border-light);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .stTabs [data-baseweb="tab"] {
     background: transparent !important;
     color: var(--text-secondary) !important;
-    font-family: 'Courier New', monospace !important;
-    font-weight: bold !important;
-    text-transform: uppercase !important;
-    letter-spacing: 1px !important;
-    border-radius: 4px !important;
-    margin: 0 2px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-weight: 500 !important;
+    border-radius: 8px !important;
+    margin: 0 4px !important;
+    padding: 0.75rem 1.5rem !important;
+    transition: all 0.2s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background: var(--clean-bg) !important;
+    color: var(--text-primary) !important;
 }
 
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
     background: linear-gradient(135deg, var(--od-green-primary), var(--od-green-dark)) !important;
-    color: var(--text-primary) !important;
+    color: var(--clean-white) !important;
+    box-shadow: 0 2px 6px rgba(74, 93, 35, 0.3) !important;
     border: 1px solid var(--od-green-light) !important;
 }
 
-/* Text Area Styling */
+/* Text Area Styling - Clean Grok Theme */
 .stTextArea > div > div > textarea {
-    background: var(--panel-bg) !important;
+    background: var(--clean-white) !important;
     color: var(--text-primary) !important;
-    border: 2px solid var(--od-green-primary) !important;
-    border-radius: 6px !important;
-    font-family: 'Courier New', monospace !important;
+    border: 1px solid var(--border-medium) !important;
+    border-radius: 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Text Input Styling */
@@ -219,4 +254,278 @@
     height: 4px;
     border-radius: 2px;
     margin: 1rem 0;
+}
+
+/* CRM-Style Interface Components */
+.crm-card {
+    background: linear-gradient(135deg, var(--panel-bg), #243040);
+    border: 2px solid var(--od-green-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    transition: all 0.3s ease;
+}
+
+.crm-card:hover {
+    border-color: var(--od-green-light);
+    box-shadow: 0 4px 12px rgba(74, 93, 35, 0.2);
+    transform: translateY(-2px);
+}
+
+.crm-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--od-green-primary);
+    margin-bottom: 1rem;
+}
+
+.drag-handle {
+    cursor: grab;
+    color: var(--od-green-primary);
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.drag-handle:hover {
+    background: var(--od-green-primary);
+    color: var(--text-primary);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+}
+
+.status-pending {
+    background: rgba(255, 193, 7, 0.2);
+    color: #FFC107;
+    border: 1px solid #FFC107;
+}
+
+.status-summarized {
+    background: rgba(0, 123, 255, 0.2);
+    color: #007BFF;
+    border: 1px solid #007BFF;
+}
+
+.status-highlighted {
+    background: rgba(0, 123, 255, 0.2);
+    color: #007BFF;
+    border: 1px solid #007BFF;
+}
+
+.status-accepted {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28A745;
+    border: 1px solid #28A745;
+}
+
+.status-archived {
+    background: rgba(108, 117, 125, 0.2);
+    color: #6C757D;
+    border: 1px solid #6C757D;
+}
+
+.status-failed {
+    background: rgba(220, 53, 69, 0.2);
+    color: #DC3545;
+    border: 1px solid #DC3545;
+}
+
+/* Metrics Dashboard */
+.metrics-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.metric-card {
+    background: linear-gradient(135deg, var(--panel-bg), #243040);
+    border: 2px solid var(--od-green-primary);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    border-color: var(--od-green-light);
+    transform: translateY(-2px);
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--od-green-light);
+    font-family: 'Courier New', monospace;
+}
+
+.metric-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.5rem;
+}
+
+/* List Item Styling */
+.list-item {
+    background: var(--panel-bg);
+    border: 1px solid var(--od-green-primary);
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    transition: all 0.3s ease;
+}
+
+.list-item:hover {
+    border-color: var(--od-green-light);
+    background: linear-gradient(135deg, var(--panel-bg), #243040);
+}
+
+.list-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.item-title {
+    font-weight: bold;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.item-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.2rem;
+}
+
+.item-preview {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-top: 0.3rem;
+    max-height: 2.4rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Quick Actions */
+.quick-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.action-btn {
+    background: transparent;
+    border: 1px solid var(--od-green-primary);
+    color: var(--od-green-primary);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.8rem;
+}
+
+.action-btn:hover {
+    background: var(--od-green-primary);
+    color: var(--text-primary);
+}
+
+/* Expandable Details */
+.details-panel {
+    background: rgba(26, 35, 50, 0.5);
+    border: 1px solid var(--od-green-primary);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.details-section {
+    margin-bottom: 1.5rem;
+}
+
+.details-section h4 {
+    color: var(--od-green-light);
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Inline Editing */
+.inline-edit {
+    border: 1px solid var(--od-green-primary);
+    background: var(--panel-bg);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    width: 100%;
+    resize: vertical;
+}
+
+.inline-edit:focus {
+    outline: none;
+    border-color: var(--od-green-light);
+    box-shadow: 0 0 0 2px rgba(74, 93, 35, 0.2);
+}
+
+/* Sortable List Styling */
+.sortable-list {
+    min-height: 200px;
+}
+
+.sortable-item {
+    cursor: move;
+    transition: all 0.3s ease;
+}
+
+.sortable-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.sortable-item.drag-over {
+    border-color: var(--accent-orange);
+    background: rgba(255, 107, 53, 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .crm-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .quick-actions {
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .metrics-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
